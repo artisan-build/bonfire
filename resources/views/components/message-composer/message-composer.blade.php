@@ -766,7 +766,7 @@
             </div>
         </template>
 
-        <flux:editor wire:model="body"
+        <flux:editor wire:model.live.debounce.500ms="body"
                      @input.debounce.250ms="whisperTyping()"
                      toolbar="bold italic strike | bullet ordered blockquote | link | code" />
 

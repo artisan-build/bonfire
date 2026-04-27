@@ -257,10 +257,10 @@
                     <flux:label>Clear after</flux:label>
                     <flux:select wire:model="statusClearIn">
                         <option value="">Don't clear</option>
-                        <option value="one_hour">In 1 hour</option>
-                        <option value="four_hours">In 4 hours</option>
-                        <option value="today">Today</option>
-                        <option value="this_week">This week</option>
+                        <option value="one_hour">1 hour</option>
+                        <option value="four_hours">4 hours</option>
+                        <option value="today">end of today</option>
+                        <option value="this_week">end of the week</option>
                     </flux:select>
                 </flux:field>
 
