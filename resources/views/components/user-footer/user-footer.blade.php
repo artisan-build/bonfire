@@ -4,15 +4,19 @@
     $showStatus = $this->statusVisible();
     $display = $member?->display_name ?? auth()->user()?->name ?? 'Me';
     $avatar = $member?->avatar_url ?? 'https://ui-avatars.com/api/?name='.urlencode($display);
+    $wsId = class_exists('App\\Support\\WorkspaceManager')
+        ? (app('App\\Support\\WorkspaceManager')->currentId() ?? 0)
+        : 0;
 @endphp
 
 <div class="flex-shrink-0 border-t border-zinc-200 px-2 py-2
             dark:border-zinc-800"
      x-data="{
-         dndUntil: parseInt(localStorage.getItem('bonfire.dnd.until') ?? '0', 10),
-         quietEnabled: localStorage.getItem('bonfire.dnd.quiet.enabled') === '1',
-         quietFrom: localStorage.getItem('bonfire.dnd.quiet.from') || '22:00',
-         quietTo: localStorage.getItem('bonfire.dnd.quiet.to') || '08:00',
+         wsKey: 'bonfire.dnd.{{ $wsId }}',
+         dndUntil: parseInt(localStorage.getItem('bonfire.dnd.{{ $wsId }}.until') ?? '0', 10),
+         quietEnabled: localStorage.getItem('bonfire.dnd.{{ $wsId }}.quiet.enabled') === '1',
+         quietFrom: localStorage.getItem('bonfire.dnd.{{ $wsId }}.quiet.from') || '22:00',
+         quietTo: localStorage.getItem('bonfire.dnd.{{ $wsId }}.quiet.to') || '08:00',
          now: Date.now(),
          get inQuiet() {
              if (! this.quietEnabled) return false;
@@ -40,24 +44,24 @@
          pause(minutes) {
              const until = minutes ? Date.now() + minutes * 60 * 1000 : 0;
              this.dndUntil = until;
-             if (until) localStorage.setItem('bonfire.dnd.until', String(until));
-             else localStorage.removeItem('bonfire.dnd.until');
+             if (until) localStorage.setItem(this.wsKey + '.until', String(until));
+             else localStorage.removeItem(this.wsKey + '.until');
          },
          pauseUntilTomorrow() {
              const t = new Date();
              t.setDate(t.getDate() + 1);
              t.setHours(9, 0, 0, 0);
              this.dndUntil = t.getTime();
-             localStorage.setItem('bonfire.dnd.until', String(this.dndUntil));
+             localStorage.setItem(this.wsKey + '.until', String(this.dndUntil));
          },
          toggleQuiet() {
              this.quietEnabled = ! this.quietEnabled;
-             localStorage.setItem('bonfire.dnd.quiet.enabled', this.quietEnabled ? '1' : '0');
+             localStorage.setItem(this.wsKey + '.quiet.enabled', this.quietEnabled ? '1' : '0');
          },
          saveQuiet() {
-             localStorage.setItem('bonfire.dnd.quiet.from', this.quietFrom);
-             localStorage.setItem('bonfire.dnd.quiet.to', this.quietTo);
-             if (this.quietEnabled) localStorage.setItem('bonfire.dnd.quiet.enabled', '1');
+             localStorage.setItem(this.wsKey + '.quiet.from', this.quietFrom);
+             localStorage.setItem(this.wsKey + '.quiet.to', this.quietTo);
+             if (this.quietEnabled) localStorage.setItem(this.wsKey + '.quiet.enabled', '1');
          },
          init() {
              setInterval(() => {

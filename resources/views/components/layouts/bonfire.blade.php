@@ -40,6 +40,10 @@
               },
           }">
         <div class="flex h-full">
+            @auth
+                <livewire:workspace-rail />
+            @endauth
+
             <aside :style="sidebarOpen ? 'width: ' + sidebarWidth + 'px' : 'width: 0px'"
                    :class="resizing ? '' : 'transition-[width] duration-200 ease-out'"
                    class="relative flex h-full flex-shrink-0 flex-col overflow-hidden border-r border-zinc-200
@@ -50,6 +54,10 @@
                     @php
                         $currentBonfireMember = \ArtisanBuild\Bonfire\Facades\Bonfire::memberFor(auth()->user());
                         $isBonfireAdmin = $currentBonfireMember?->hasRoleAtLeast(\ArtisanBuild\Bonfire\Enums\BonfireRole::Admin) ?? false;
+                        $currentWorkspace = class_exists('App\\Support\\WorkspaceManager')
+                            ? app('App\\Support\\WorkspaceManager')->current()
+                            : null;
+                        $workspaceLabel = $currentWorkspace?->name ?? config('app.name', 'Bonfire');
                     @endphp
 
                     <div class="flex h-12 flex-shrink-0 items-center justify-between gap-2 border-b border-zinc-200 px-3
@@ -59,20 +67,25 @@
                                     class="group flex min-w-0 flex-1 items-center gap-1 rounded px-1.5 py-1
                                            text-left text-sm font-semibold
                                            hover:bg-zinc-200/60 dark:hover:bg-zinc-800">
-                                <span class="truncate">{{ config('app.name', 'Bonfire') }}</span>
+                                <span class="truncate">{{ $workspaceLabel }}</span>
                                 <flux:icon name="chevron-down" class="size-3.5 text-zinc-500" />
                             </button>
 
                             <flux:menu>
                                 <flux:menu.item icon="plus">Invite people</flux:menu.item>
-                                @if ($isBonfireAdmin)
+                                @if (Route::has('workspace.settings'))
                                     <flux:menu.item icon="cog-6-tooth"
-                                                    href="{{ route('bonfire.admin.index') }}"
+                                                    href="{{ route('workspace.settings') }}"
                                                     wire:navigate>
                                         Workspace settings
                                     </flux:menu.item>
-                                @else
-                                    <flux:menu.item icon="cog-6-tooth" disabled>Workspace settings</flux:menu.item>
+                                @endif
+                                @if ($isBonfireAdmin)
+                                    <flux:menu.item icon="shield-check"
+                                                    href="{{ route('bonfire.admin.index') }}"
+                                                    wire:navigate>
+                                        Channel admin
+                                    </flux:menu.item>
                                 @endif
                                 <flux:menu.separator />
                                 <flux:menu.item icon="arrow-right-start-on-rectangle"
@@ -82,7 +95,7 @@
                             </flux:menu>
                         </flux:dropdown>
 
-                        <div class="flex items-center gap-1 text-zinc-500"
+                        <div class="flex flex-shrink-0 items-center gap-1 text-zinc-500"
                              x-data="{
                                  filter: localStorage.getItem('bonfire.filter') ?? 'all',
                                  sort: localStorage.getItem('bonfire.sort') ?? 'alpha',
@@ -295,10 +308,19 @@
                     </a>
                 </template>
             </div>
+            @php
+                $bonfireWorkspaceId = class_exists('App\\Support\\WorkspaceManager')
+                    ? (app('App\\Support\\WorkspaceManager')->currentId() ?? 0)
+                    : 0;
+            @endphp
+            <script>
+                window.bonfireWorkspaceId = {{ $bonfireWorkspaceId }};
+            </script>
             @once
                 <script>
                     window.bonfireNotifications = function () {
                         const routePrefix = @json(url(config('bonfire.route_prefix', 'bonfire')));
+                        const wsKey = () => 'bonfire.dnd.' + (window.bonfireWorkspaceId || 0);
                         return {
                             toasts: [],
                             push(payload) {
@@ -307,9 +329,10 @@
                                 setTimeout(() => this.toasts = this.toasts.filter(t => t.id !== id), 6000);
                             },
                             inQuietWindow() {
-                                if (localStorage.getItem('bonfire.dnd.quiet.enabled') !== '1') return false;
-                                const from = localStorage.getItem('bonfire.dnd.quiet.from') || '';
-                                const to = localStorage.getItem('bonfire.dnd.quiet.to') || '';
+                                const k = wsKey();
+                                if (localStorage.getItem(k + '.quiet.enabled') !== '1') return false;
+                                const from = localStorage.getItem(k + '.quiet.from') || '';
+                                const to = localStorage.getItem(k + '.quiet.to') || '';
                                 const parse = (s) => {
                                     const m = /^(\d{1,2}):(\d{2})$/.exec(s || '');
                                     return m ? (parseInt(m[1], 10) * 60 + parseInt(m[2], 10)) : null;
@@ -321,7 +344,7 @@
                                 return f === t ? false : (f < t ? (n >= f && n < t) : (n >= f || n < t));
                             },
                             dndActive() {
-                                const until = parseInt(localStorage.getItem('bonfire.dnd.until') ?? '0', 10);
+                                const until = parseInt(localStorage.getItem(wsKey() + '.until') ?? '0', 10);
                                 if (until > Date.now()) return true;
                                 return this.inQuietWindow();
                             },

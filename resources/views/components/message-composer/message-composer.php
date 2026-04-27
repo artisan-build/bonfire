@@ -114,6 +114,15 @@ return new class extends Component
             ? ($poll !== null ? (string) ($poll['question'] ?? '📎') : '📎')
             : $body;
 
+        // Slash command transforms (apply before poll handling so /poll still wins).
+        if ($poll === null) {
+            $transformed = $this->applySlashCommand($plain, $member);
+            if ($transformed !== null) {
+                $effectiveBody = $transformed;
+                $plain = trim(strip_tags(html_entity_decode($transformed, ENT_QUOTES | ENT_HTML5)));
+            }
+        }
+
         $scheduledAt = $this->scheduledFor !== null && $this->scheduledFor !== ''
             ? Carbon::parse($this->scheduledFor)
             : null;
@@ -144,6 +153,34 @@ return new class extends Component
         $this->pendingPoll = null;
         $this->reset('body', 'pendingAttachments', 'scheduledFor', 'alsoSendToChannel');
         $this->dispatch('bonfire-own-message-sent');
+    }
+
+    /**
+     * Apply `/me`, `/shrug` slash commands to the message body. Returns the
+     * transformed HTML body, or null if no command matched.
+     */
+    private function applySlashCommand(string $plain, ?Member $member): ?string
+    {
+        if ($plain === '') {
+            return null;
+        }
+
+        if (preg_match('#^/me\s+(.+)$#si', $plain, $m)) {
+            $name = htmlspecialchars($member?->display_name ?? 'Someone', ENT_QUOTES | ENT_HTML5);
+            $body = htmlspecialchars(trim($m[1]), ENT_QUOTES | ENT_HTML5);
+
+            return '<p><em>* '.$name.' '.$body.'</em></p>';
+        }
+
+        if (preg_match('#^/shrug(?:\s+(.*))?$#si', $plain, $m)) {
+            $shrug = '¯\\_(ツ)_/¯';
+            $trailing = isset($m[1]) ? trim($m[1]) : '';
+            $combined = $trailing === '' ? $shrug : $shrug.' '.$trailing;
+
+            return '<p>'.htmlspecialchars($combined, ENT_QUOTES | ENT_HTML5).'</p>';
+        }
+
+        return null;
     }
 
     /**

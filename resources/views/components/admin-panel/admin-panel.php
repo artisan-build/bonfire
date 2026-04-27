@@ -26,12 +26,79 @@ return new class extends Component
 
     public bool $newAnnouncements = false;
 
+    public ?int $expandedRoomId = null;
+
+    public string $memberSearch = '';
+
     public function mount(): void
     {
         $member = Bonfire::memberFor(auth()->user());
 
         abort_unless(
             $member !== null && $member->is_active && $member->hasRoleAtLeast(BonfireRole::Admin),
+            403,
+        );
+    }
+
+    #[Computed]
+    public function showFeatures(): bool
+    {
+        if (! class_exists('App\\Livewire\\Admin\\FeatureFlags')) {
+            return false;
+        }
+
+        $user = auth()->user();
+
+        return $user !== null && (bool) ($user->is_admin ?? false);
+    }
+
+    public function toggleRoomMembers(int $roomId): void
+    {
+        $this->expandedRoomId = $this->expandedRoomId === $roomId ? null : $roomId;
+        $this->memberSearch = '';
+    }
+
+    public function addMemberToRoom(int $roomId, int $memberId): void
+    {
+        $this->ensureAdmin();
+
+        $room = Room::query()->where('tenant_id', Bonfire::tenantId())->find($roomId);
+        $member = Member::query()->where('tenant_id', Bonfire::tenantId())->find($memberId);
+
+        if ($room === null || $member === null) {
+            return;
+        }
+
+        $actor = Bonfire::memberFor(auth()->user());
+        $room->addMember($member, $actor);
+
+        unset($this->rooms);
+        $this->dispatch('bonfire:rooms-changed');
+    }
+
+    public function removeMemberFromRoom(int $roomId, int $memberId): void
+    {
+        $this->ensureAdmin();
+
+        $room = Room::query()->where('tenant_id', Bonfire::tenantId())->find($roomId);
+        $member = Member::query()->where('tenant_id', Bonfire::tenantId())->find($memberId);
+
+        if ($room === null || $member === null) {
+            return;
+        }
+
+        $room->removeMember($member);
+
+        unset($this->rooms);
+        $this->dispatch('bonfire:rooms-changed');
+    }
+
+    protected function ensureAdmin(): void
+    {
+        $actor = Bonfire::memberFor(auth()->user());
+
+        abort_unless(
+            $actor !== null && $actor->is_active && $actor->hasRoleAtLeast(BonfireRole::Admin),
             403,
         );
     }
@@ -44,8 +111,42 @@ return new class extends Component
     {
         return Room::query()
             ->where('tenant_id', Bonfire::tenantId())
+            ->with(['members' => function ($query): void {
+                $query->orderBy('display_name');
+            }])
             ->orderBy('name')
             ->get();
+    }
+
+    /**
+     * @return Collection<int, Member>
+     */
+    #[Computed]
+    public function availableMembers(): Collection
+    {
+        if ($this->expandedRoomId === null) {
+            return collect();
+        }
+
+        $room = $this->rooms->firstWhere('id', $this->expandedRoomId);
+
+        if ($room === null) {
+            return collect();
+        }
+
+        $assignedIds = $room->members->pluck('id')->all();
+
+        $query = Member::query()
+            ->where('tenant_id', Bonfire::tenantId())
+            ->whereNotIn('id', $assignedIds)
+            ->orderBy('display_name');
+
+        $term = trim($this->memberSearch);
+        if ($term !== '') {
+            $query->where('display_name', 'like', '%'.$term.'%');
+        }
+
+        return $query->limit(50)->get();
     }
 
     /**
