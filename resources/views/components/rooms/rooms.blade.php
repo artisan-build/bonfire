@@ -79,27 +79,7 @@
                 <div x-show="isOpen('starred')">
                     <ul class="flex flex-col">
                         @foreach ($starred as $room)
-                            <li wire:key="starred-{{ $room->id }}">
-                                <a href="{{ route('bonfire.room.show', $room) }}"
-                                   class="group flex items-center gap-2 rounded px-2 py-1
-                                          {{ $room->id === $currentRoomId
-                                              ? 'bg-sky-100 text-sky-900 dark:bg-sky-900/40 dark:text-sky-100'
-                                              : 'text-zinc-700 hover:bg-zinc-200/60 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100' }}">
-                                    @if ($room->isAnnouncements())
-                                        <flux:icon name="megaphone" class="size-4 flex-shrink-0 text-amber-500" />
-                                    @else
-                                        <span class="w-4 flex-shrink-0 text-center text-zinc-400">#</span>
-                                    @endif
-                                    <span class="truncate {{ $room->has_unread ? 'font-semibold text-zinc-900 dark:text-zinc-100' : '' }}">
-                                        {{ $room->name }}
-                                    </span>
-                                    <button type="button"
-                                            wire:click.stop.prevent="toggleStar({{ $room->id }})"
-                                            class="ml-auto text-amber-500 hover:text-amber-600">
-                                        <flux:icon name="star" variant="solid" class="size-3.5" />
-                                    </button>
-                                </a>
-                            </li>
+                            @include('bonfire::partials._channel-row', ['room' => $room, 'currentRoomId' => $currentRoomId])
                         @endforeach
                     </ul>
                 </div>

@@ -36,6 +36,15 @@
         @endif
     </a>
 
+    @if ($room->is_starred ?? false)
+        <span class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-amber-500
+                     opacity-100 transition-opacity
+                     group-hover:opacity-0
+                     focus-within:opacity-0">
+            <flux:icon name="star" variant="solid" class="size-3.5" />
+        </span>
+    @endif
+
     <div x-data="{
             notifyKey: 'bonfire.notify.{{ $room->id }}',
             notify: localStorage.getItem('bonfire.notify.{{ $room->id }}') ?? 'all',
