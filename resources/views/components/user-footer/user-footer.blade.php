@@ -109,6 +109,24 @@
                         {{ $isAway ? 'Away' : 'Active' }}
                     @endif
                 </div>
+                @if ($showStatus && $member?->status_expires_at instanceof \Carbon\CarbonInterface)
+                    <div class="truncate text-[10px] text-zinc-500" title="{{ $member->status_expires_at->toRfc7231String() }}">
+                        @php($exp = $member->status_expires_at)
+                        @if ($exp->isToday())
+                            until {{ $exp->format('g:i A') }}
+                        @elseif ($exp->isTomorrow())
+                            until tomorrow {{ $exp->format('g:i A') }}
+                        @else
+                            until {{ $exp->format('M j, g:i A') }}
+                        @endif
+                    </div>
+                @endif
+                <div x-show="dndActive"
+                     class="truncate text-[10px] text-sky-600 dark:text-sky-400"
+                     style="display: none;">
+                    <flux:icon name="moon" class="mr-0.5 inline size-3" />
+                    <span x-text="dndLabel"></span>
+                </div>
             </div>
             <flux:icon name="chevron-up" class="size-3.5 text-zinc-400" />
         </button>

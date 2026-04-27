@@ -519,9 +519,11 @@
               return `${m}:${s.toString().padStart(2, '0')}`;
           },
 
+          /** Commit the message immediately at the chosen time so the composer is free to start a new draft. */
           chooseSchedule(value) {
               this.scheduledFor = value;
               this.scheduleOpen = false;
+              this.$nextTick(() => this.submitForm());
           },
           clearSchedule() {
               this.scheduledFor = null;
@@ -532,6 +534,7 @@
               if (! this.scheduleCustom) return;
               this.scheduledFor = this.scheduleCustom;
               this.scheduleOpen = false;
+              this.$nextTick(() => this.submitForm());
           },
           get scheduleLabel() {
               if (! this.scheduledFor) return '';
