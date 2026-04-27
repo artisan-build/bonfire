@@ -1,0 +1,16 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 5
+    paths:
+        - src
+        - config
+    excludePaths:
+        analyseAndScan:
+            - vendor/orchestra/testbench-core/laravel/vendor
+        analyse:
+            - src/**/*Test.php
+    ignoreErrors:
+        - identifier: trait.unused
+    tmpDir: build/phpstan
