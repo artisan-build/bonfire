@@ -605,7 +605,12 @@
           x-ref="form"
           class="flex flex-col gap-2">
 
-        @if ($this->pendingAttachments)
+        @php
+            $reattachedAttachments = $this->pendingAttachmentIds === []
+                ? collect()
+                : \ArtisanBuild\Bonfire\Models\Attachment::query()->whereIn('id', $this->pendingAttachmentIds)->get();
+        @endphp
+        @if ($this->pendingAttachments || $reattachedAttachments->isNotEmpty())
             <div class="flex flex-wrap gap-2 rounded-md border border-zinc-200 p-2
                         dark:border-zinc-700">
                 @foreach ($this->pendingAttachments as $index => $pending)
@@ -617,6 +622,20 @@
                         </span>
                         <button type="button"
                                 wire:click="removeAttachment({{ $index }})"
+                                class="text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400">
+                            <flux:icon name="x-mark" class="size-3.5" />
+                        </button>
+                    </div>
+                @endforeach
+                @foreach ($reattachedAttachments as $reattached)
+                    <div class="flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-xs
+                                dark:border-sky-900/60 dark:bg-sky-950/30">
+                        <flux:icon name="clock" class="size-3.5 text-sky-600 dark:text-sky-400" />
+                        <span class="max-w-40 truncate text-zinc-800 dark:text-zinc-200">
+                            {{ $reattached->filename }}
+                        </span>
+                        <button type="button"
+                                wire:click="removePendingExisting({{ $reattached->id }})"
                                 class="text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400">
                             <flux:icon name="x-mark" class="size-3.5" />
                         </button>
@@ -777,12 +796,20 @@
                         <flux:menu.item icon="arrow-up-tray" @click="triggerFile()">
                             Upload from computer
                         </flux:menu.item>
-                        <flux:menu.item icon="clock" disabled>
-                            Recent files
-                        </flux:menu.item>
-                        <flux:menu.item icon="list-bullet" disabled>
-                            From list
-                        </flux:menu.item>
+                        @if ($this->recentAttachments->isNotEmpty())
+                            <flux:menu.submenu icon="clock" heading="Recent files">
+                                @foreach ($this->recentAttachments as $recent)
+                                    <flux:menu.item icon="paper-clip"
+                                                    wire:click="attachExisting({{ $recent->id }})">
+                                        <span class="truncate">{{ $recent->filename }}</span>
+                                    </flux:menu.item>
+                                @endforeach
+                            </flux:menu.submenu>
+                        @else
+                            <flux:menu.item icon="clock" disabled>
+                                Recent files
+                            </flux:menu.item>
+                        @endif
                     </flux:menu>
                 </flux:dropdown>
 

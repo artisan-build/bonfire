@@ -8,6 +8,7 @@ use ArtisanBuild\Bonfire\Models\Attachment;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\Room;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Livewire\Attributes\Computed;
@@ -33,6 +34,9 @@ return new class extends Component
 
     /** @var array<int, UploadedFile> */
     public array $pendingAttachments = [];
+
+    /** @var array<int, int> Existing attachment ids to clone into the next message. */
+    public array $pendingAttachmentIds = [];
 
     public string $pollQuestion = '';
 
@@ -82,6 +86,53 @@ return new class extends Component
             ->all();
     }
 
+    /**
+     * @return Collection<int, Attachment>
+     */
+    #[Computed]
+    public function recentAttachments(): Collection
+    {
+        $member = $this->member();
+        if ($member === null) {
+            return Attachment::query()->whereRaw('1=0')->get();
+        }
+
+        return Attachment::query()
+            ->whereHas('message', fn ($q) => $q->where('member_id', $member->id))
+            ->orderByDesc('id')
+            ->limit(8)
+            ->get();
+    }
+
+    public function attachExisting(int $attachmentId): void
+    {
+        $member = $this->member();
+        if ($member === null) {
+            return;
+        }
+
+        $exists = Attachment::query()
+            ->whereKey($attachmentId)
+            ->whereHas('message', fn ($q) => $q->where('member_id', $member->id))
+            ->exists();
+
+        if (! $exists) {
+            return;
+        }
+
+        if (! in_array($attachmentId, $this->pendingAttachmentIds, true)) {
+            $this->pendingAttachmentIds[] = $attachmentId;
+        }
+    }
+
+    public function removePendingExisting(int $attachmentId): void
+    {
+        $this->pendingAttachmentIds = array_values(array_filter(
+            $this->pendingAttachmentIds,
+            fn ($id) => (int) $id !== $attachmentId,
+        ));
+    }
+
     public function removeAttachment(int $index): void
     {
         if (! array_key_exists($index, $this->pendingAttachments)) {
@@ -97,7 +148,10 @@ return new class extends Component
         $body = trim($this->body);
         $plain = trim(strip_tags(html_entity_decode($body, ENT_QUOTES | ENT_HTML5)));
 
-        if ($plain === '' && $this->pendingAttachments === [] && $this->pendingPoll === null) {
+        if ($plain === ''
+            && $this->pendingAttachments === []
+            && $this->pendingAttachmentIds === []
+            && $this->pendingPoll === null) {
             return;
         }
 
@@ -151,7 +205,7 @@ return new class extends Component
         }
 
         $this->pendingPoll = null;
-        $this->reset('body', 'pendingAttachments', 'scheduledFor', 'alsoSendToChannel');
+        $this->reset('body', 'pendingAttachments', 'pendingAttachmentIds', 'scheduledFor', 'alsoSendToChannel');
         $this->dispatch('bonfire-own-message-sent');
     }
 
@@ -390,7 +444,7 @@ return new class extends Component
 
     private function storeAttachments(Message $message): void
     {
-        if ($this->pendingAttachments === []) {
+        if ($this->pendingAttachments === [] && $this->pendingAttachmentIds === []) {
             return;
         }
 
@@ -412,6 +466,29 @@ return new class extends Component
                 'size' => $upload->getSize() ?? 0,
                 'created_at' => now(),
             ]);
+        }
+
+        // Clone selected recent attachments by referencing the same stored path.
+        if ($this->pendingAttachmentIds !== []) {
+            $member = $this->member();
+            if ($member !== null) {
+                $existing = Attachment::query()
+                    ->whereIn('id', $this->pendingAttachmentIds)
+                    ->whereHas('message', fn ($q) => $q->where('member_id', $member->id))
+                    ->get();
+
+                foreach ($existing as $src) {
+                    Attachment::query()->create([
+                        'message_id' => $message->id,
+                        'disk' => $src->disk,
+                        'path' => $src->path,
+                        'filename' => $src->filename,
+                        'mime_type' => $src->mime_type,
+                        'size' => $src->size,
+                        'created_at' => now(),
+                    ]);
+                }
+            }
         }
     }
 };

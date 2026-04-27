@@ -10,7 +10,7 @@
     $displayName = $isDm && $dmPartner ? $dmPartner->display_name : $room->name;
 @endphp
 
-<div class="flex h-full min-h-0 flex-1 flex-col"
+<div class="flex h-full min-h-0 min-w-0 flex-1 flex-col"
      data-bonfire-room-id="{{ $room->id }}"
      x-data="{
          init() {
