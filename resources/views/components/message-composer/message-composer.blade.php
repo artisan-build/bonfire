@@ -1146,30 +1146,32 @@
                        multiple
                        class="hidden" />
 
-                <flux:dropdown>
-                    <flux:button type="button" variant="ghost" size="sm" icon="paper-clip" title="Attach">
-                    </flux:button>
+                @feature('message_attachments')
+                    <flux:dropdown>
+                        <flux:button type="button" variant="ghost" size="sm" icon="paper-clip" title="Attach">
+                        </flux:button>
 
-                    <flux:menu>
-                        <flux:menu.item icon="arrow-up-tray" @click="triggerFile()">
-                            Upload from computer
-                        </flux:menu.item>
-                        @if ($this->recentAttachments->isNotEmpty())
-                            <flux:menu.submenu icon="clock" heading="Recent files">
-                                @foreach ($this->recentAttachments as $recent)
-                                    <flux:menu.item icon="paper-clip"
-                                                    wire:click="attachExisting({{ $recent->id }})">
-                                        <span class="truncate">{{ $recent->filename }}</span>
-                                    </flux:menu.item>
-                                @endforeach
-                            </flux:menu.submenu>
-                        @else
-                            <flux:menu.item icon="clock" disabled>
-                                Recent files
+                        <flux:menu>
+                            <flux:menu.item icon="arrow-up-tray" @click="triggerFile()">
+                                Upload from computer
                             </flux:menu.item>
-                        @endif
-                    </flux:menu>
-                </flux:dropdown>
+                            @if ($this->recentAttachments->isNotEmpty())
+                                <flux:menu.submenu icon="clock" heading="Recent files">
+                                    @foreach ($this->recentAttachments as $recent)
+                                        <flux:menu.item icon="paper-clip"
+                                                        wire:click="attachExisting({{ $recent->id }})">
+                                            <span class="truncate">{{ $recent->filename }}</span>
+                                        </flux:menu.item>
+                                    @endforeach
+                                </flux:menu.submenu>
+                            @else
+                                <flux:menu.item icon="clock" disabled>
+                                    Recent files
+                                </flux:menu.item>
+                            @endif
+                        </flux:menu>
+                    </flux:dropdown>
+                @endfeature
 
                 <button type="button"
                         title="Record voice note"
@@ -1204,14 +1206,16 @@
                                dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
                     <flux:icon name="at-symbol" class="size-4" />
                 </button>
-                <button type="button"
-                        title="Create a poll"
-                        @mousedown.prevent
-                        @click="$dispatch('modal-show', { name: 'create-poll' })"
-                        class="rounded p-1.5 hover:bg-zinc-100 hover:text-zinc-900
-                               dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
-                    <flux:icon name="chart-bar" class="size-4" />
-                </button>
+                @feature('message_polls')
+                    <button type="button"
+                            title="Create a poll"
+                            @mousedown.prevent
+                            @click="$dispatch('modal-show', { name: 'create-poll' })"
+                            class="rounded p-1.5 hover:bg-zinc-100 hover:text-zinc-900
+                                   dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
+                        <flux:icon name="chart-bar" class="size-4" />
+                    </button>
+                @endfeature
             </div>
 
             <div class="flex items-center gap-2">

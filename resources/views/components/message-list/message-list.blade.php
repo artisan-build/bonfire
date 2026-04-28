@@ -617,13 +617,15 @@
                                 rounded-md border border-zinc-200 bg-white p-0.5 shadow-sm
                                 group-hover:pointer-events-auto group-hover:flex
                                 dark:border-zinc-700 dark:bg-zinc-900">
-                        <button wire:click="openThread({{ $message->id }})"
-                                type="button"
-                                title="Reply in thread"
-                                class="rounded p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900
-                                       dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
-                            <flux:icon name="chat-bubble-left-right" class="size-4" />
-                        </button>
+                        @feature('message_threads')
+                            <button wire:click="openThread({{ $message->id }})"
+                                    type="button"
+                                    title="Reply in thread"
+                                    class="rounded p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900
+                                           dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
+                                <flux:icon name="chat-bubble-left-right" class="size-4" />
+                            </button>
+                        @endfeature
                         <button type="button"
                                 title="Copy link to message"
                                 @click="copyMessageLink({{ $message->id }}, $event.currentTarget)"
@@ -638,24 +640,26 @@
                                        dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
                             <flux:icon name="paper-airplane" class="size-4" />
                         </button>
-                        @if ($this->canPin($message))
-                            <button type="button"
-                                    wire:click="togglePin({{ $message->id }})"
-                                    title="{{ $message->pinned_at ? 'Unpin from channel' : 'Pin to channel' }}"
-                                    class="rounded p-1 {{ $message->pinned_at ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500 dark:text-zinc-400' }}
-                                           hover:bg-amber-50 hover:text-amber-600
-                                           dark:hover:bg-amber-950/40 dark:hover:text-amber-400">
-                                @if ($message->pinned_at)
-                                    <svg class="size-4" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2z"/>
-                                    </svg>
-                                @else
-                                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
-                                        <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2z"/>
-                                    </svg>
-                                @endif
-                            </button>
-                        @endif
+                        @feature('pinned_messages')
+                            @if ($this->canPin($message))
+                                <button type="button"
+                                        wire:click="togglePin({{ $message->id }})"
+                                        title="{{ $message->pinned_at ? 'Unpin from channel' : 'Pin to channel' }}"
+                                        class="rounded p-1 {{ $message->pinned_at ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500 dark:text-zinc-400' }}
+                                               hover:bg-amber-50 hover:text-amber-600
+                                               dark:hover:bg-amber-950/40 dark:hover:text-amber-400">
+                                    @if ($message->pinned_at)
+                                        <svg class="size-4" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2z"/>
+                                        </svg>
+                                    @else
+                                        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+                                            <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2z"/>
+                                        </svg>
+                                    @endif
+                                </button>
+                            @endif
+                        @endfeature
                         @if ($this->canEdit($message))
                             <button
                                     type="button"

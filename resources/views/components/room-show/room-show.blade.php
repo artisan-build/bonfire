@@ -329,39 +329,43 @@
                 </flux:dropdown>
 
                 @if ($isDm && $dmPartner)
-                    <button type="button"
-                            title="Call {{ $dmPartner->display_name }}"
-                            data-room-id="{{ $room->id }}"
-                            data-member-id="{{ $dmPartner->id }}"
-                            data-name="{{ $dmPartner->display_name }}"
-                            data-avatar="{{ $dmPartner->avatar_url ?? '' }}"
-                            @click="$dispatch('bonfire-start-call', {
-                                roomId: Number($event.currentTarget.dataset.roomId),
-                                memberId: Number($event.currentTarget.dataset.memberId),
-                                name: $event.currentTarget.dataset.name || '',
-                                avatar: $event.currentTarget.dataset.avatar || '',
-                            })"
-                            class="rounded p-1.5 text-emerald-600 hover:bg-emerald-50
-                                   dark:text-emerald-400 dark:hover:bg-emerald-950/30">
-                        <flux:icon name="phone" class="size-4" />
-                    </button>
+                    @feature('voice_calls')
+                        <button type="button"
+                                title="Call {{ $dmPartner->display_name }}"
+                                data-room-id="{{ $room->id }}"
+                                data-member-id="{{ $dmPartner->id }}"
+                                data-name="{{ $dmPartner->display_name }}"
+                                data-avatar="{{ $dmPartner->avatar_url ?? '' }}"
+                                @click="$dispatch('bonfire-start-call', {
+                                    roomId: Number($event.currentTarget.dataset.roomId),
+                                    memberId: Number($event.currentTarget.dataset.memberId),
+                                    name: $event.currentTarget.dataset.name || '',
+                                    avatar: $event.currentTarget.dataset.avatar || '',
+                                })"
+                                class="rounded p-1.5 text-emerald-600 hover:bg-emerald-50
+                                       dark:text-emerald-400 dark:hover:bg-emerald-950/30">
+                            <flux:icon name="phone" class="size-4" />
+                        </button>
+                    @endfeature
                 @else
-                    @php
-                        $isGamingWs = class_exists('App\\Support\\WorkspaceManager')
-                            && app('App\\Support\\WorkspaceManager')->current()?->theme === 'gaming';
-                    @endphp
-                    <button type="button"
-                            title="{{ $isGamingWs ? 'Start voice + screen share' : 'Start or join meeting in this channel' }}"
-                            data-room-id="{{ $room->id }}"
-                            data-room-name="{{ $room->name }}"
-                            @click="$dispatch('bonfire-join-meeting', {
-                                roomId: Number($event.currentTarget.dataset.roomId),
-                                roomName: $event.currentTarget.dataset.roomName,
-                            })"
-                            class="rounded p-1.5 text-emerald-600 hover:bg-emerald-50
-                                   dark:text-emerald-400 dark:hover:bg-emerald-950/30">
-                        <flux:icon :name="$isGamingWs ? 'tv' : 'video-camera'" class="size-4" />
-                    </button>
+                    @feature('video_calls')
+                        @php
+                            $isGamingWs = class_exists('App\\Support\\WorkspaceManager')
+                                && app('App\\Support\\WorkspaceManager')->current()?->theme === 'gaming';
+                        @endphp
+                        <button type="button"
+                                title="{{ $isGamingWs ? 'Start voice + screen share' : 'Start or join meeting in this channel' }}"
+                                data-room-id="{{ $room->id }}"
+                                data-room-name="{{ $room->name }}"
+                                @click="$dispatch('bonfire-join-meeting', {
+                                    roomId: Number($event.currentTarget.dataset.roomId),
+                                    roomName: $event.currentTarget.dataset.roomName,
+                                })"
+                                class="rounded p-1.5 text-emerald-600 hover:bg-emerald-50
+                                       dark:text-emerald-400 dark:hover:bg-emerald-950/30">
+                            <flux:icon :name="$isGamingWs ? 'tv' : 'video-camera'" class="size-4" />
+                        </button>
+                    @endfeature
                 @endif
 
                 <button type="button"
