@@ -136,6 +136,7 @@
                                      };
                                      tone(523.25, 0, 0.10);
                                      tone(783.99, 0.09, 0.18);
+                                     setTimeout(() => { try { ctx.close(); } catch (e) {} }, 600);
                                  } catch (e) {}
                              },
                              join() {

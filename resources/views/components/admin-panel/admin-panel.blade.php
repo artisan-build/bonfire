@@ -31,6 +31,7 @@
          get heading() {
              if (this.pending.action === 'forceDeleteRoom') return 'Permanently delete channel?';
              if (this.pending.action === 'deleteRoom') return 'Delete channel?';
+             if (this.pending.action === 'kickMember') return 'Kick member from workspace?';
              return 'Confirm';
          },
          get body() {
@@ -39,6 +40,9 @@
              }
              if (this.pending.action === 'deleteRoom') {
                  return '#' + this.pending.name + ' will move to the Deleted channels list. You can restore it from there.';
+             }
+             if (this.pending.action === 'kickMember') {
+                 return this.pending.name + ' will lose access to every channel and be removed from this workspace. Their messages and reactions in this workspace will also be deleted. This cannot be undone.';
              }
              return '';
          },
@@ -418,10 +422,11 @@
                 <flux:icon name="information-circle" variant="solid" class="mt-0.5 size-5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
                 <p class="leading-relaxed">
                     <strong class="font-semibold">Deactivate</strong>
-                    blocks the member from opening any channel, downloading attachments, or deleting messages.
-                    Their messages and history stay intact, and
+                    blocks the member from opening any channel — their history stays intact, and
                     <strong class="font-semibold">Reactivate</strong>
-                    reverses it. The underlying user account is not deleted.
+                    reverses it.
+                    <strong class="font-semibold">Kick</strong>
+                    removes them from this workspace entirely along with their messages and reactions; this cannot be undone. The underlying user account is never deleted.
                 </p>
             </div>
 
@@ -490,6 +495,14 @@
                                     Reactivate
                                 @endif
                             </button>
+                            <button type="button"
+                                    @click="ask('kickMember', {{ $member->id }}, @js($member->display_name), 3)"
+                                    class="inline-flex items-center gap-1.5 rounded-md border border-rose-500 bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition
+                                           hover:bg-rose-700
+                                           dark:border-rose-700 dark:bg-rose-700 dark:hover:bg-rose-800">
+                                <flux:icon name="user-minus" variant="solid" class="size-3.5" />
+                                Kick
+                            </button>
                         </li>
                     @empty
                         <li class="p-10 text-center text-sm text-zinc-500">No members yet.</li>
@@ -527,11 +540,11 @@
                              ::disabled="countdown > 0"
                              @click="confirm()">
                     <span x-show="countdown > 0">
-                        <span x-text="pending.action === 'forceDeleteRoom' ? 'Wiping in ' : 'Deleting in '"></span>
+                        <span x-text="pending.action === 'forceDeleteRoom' ? 'Wiping in ' : (pending.action === 'kickMember' ? 'Kicking in ' : 'Deleting in ')"></span>
                         <span x-text="countdown"></span>
                     </span>
                     <span x-show="countdown === 0"
-                          x-text="pending.action === 'forceDeleteRoom' ? 'Delete forever' : 'Delete channel'"></span>
+                          x-text="pending.action === 'forceDeleteRoom' ? 'Delete forever' : (pending.action === 'kickMember' ? 'Kick member' : 'Delete channel')"></span>
                 </flux:button>
             </div>
         </div>

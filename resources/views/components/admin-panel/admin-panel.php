@@ -293,4 +293,28 @@ return new class extends Component
 
         unset($this->members);
     }
+
+    public function kickMember(int $memberId): void
+    {
+        $this->ensureAdmin();
+
+        $target = Member::query()
+            ->where('tenant_id', Bonfire::tenantId())
+            ->find($memberId);
+
+        if ($target === null) {
+            return;
+        }
+
+        $actor = Bonfire::memberFor(auth()->user());
+        if ($actor !== null && $actor->getKey() === $target->getKey()) {
+            return;
+        }
+
+        $target->rooms()->detach();
+        $target->delete();
+
+        unset($this->members, $this->rooms);
+        $this->dispatch('bonfire:rooms-changed');
+    }
 };

@@ -63,6 +63,9 @@
              this.deleteCountdown = 0;
              this.deleteTarget = { id: null, name: '' };
          },
+         destroy() {
+             if (this.deleteTimer) { clearInterval(this.deleteTimer); this.deleteTimer = null; }
+         },
      }"
      @bonfire-ask-delete-channel.window="askDelete($event.detail)"
      class="flex min-h-0 flex-1 flex-col text-sm">
