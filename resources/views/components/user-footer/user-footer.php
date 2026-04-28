@@ -216,6 +216,8 @@ return new class extends Component
 
     /**
      * Whether the member's status is currently active (not past its expiry).
+     * If the status has expired, clear it from the DB so it doesn't reappear
+     * on the next render.
      */
     public function statusVisible(): bool
     {
@@ -230,6 +232,17 @@ return new class extends Component
         }
 
         if ($member->status_expires_at instanceof Carbon && $member->status_expires_at->isPast()) {
+            $member->status_emoji = null;
+            $member->status_text = null;
+            $member->status_expires_at = null;
+            $member->save();
+
+            $this->statusEmoji = '';
+            $this->statusText = '';
+            $this->statusClearIn = '';
+
+            unset($this->member);
+
             return false;
         }
 

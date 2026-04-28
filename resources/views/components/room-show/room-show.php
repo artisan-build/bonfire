@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\VoiceRoomPresence;
 use ArtisanBuild\Bonfire\Enums\BonfireRole;
 use ArtisanBuild\Bonfire\Facades\Bonfire;
 use ArtisanBuild\Bonfire\Models\Attachment;
@@ -10,6 +11,7 @@ use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\Room;
 use ArtisanBuild\Bonfire\Support\UnreadTracker;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
@@ -21,19 +23,142 @@ return new class extends Component
 
     public ?int $openThreadId = null;
 
+    public ?string $previousReadAt = null;
+
     public function mount(Room $room): void
     {
         $this->room = $room;
 
         abort_unless($this->canView(), 403);
 
-        resolve(UnreadTracker::class)->markRead($room, $this->currentMember());
+        $tracker = resolve(UnreadTracker::class);
+        $previous = $tracker->lastReadAt($room, $this->currentMember());
+        $this->previousReadAt = $previous?->toIso8601String();
+
+        $tracker->markRead($room, $this->currentMember());
+
+        $this->dispatch('bonfire:read-state-changed');
     }
 
     #[Computed]
     public function currentMember(): ?Member
     {
         return Bonfire::memberFor(auth()->user());
+    }
+
+    /**
+     * @return Collection<int, Member>
+     */
+    #[Computed]
+    public function voiceParticipants(): Collection
+    {
+        if (! class_exists(VoiceRoomPresence::class)) {
+            /** @var Collection<int, Member> */
+            return new Collection;
+        }
+
+        $cutoff = Carbon::now()->subSeconds(90);
+
+        $memberIds = VoiceRoomPresence::query()
+            ->where('room_id', $this->room->id)
+            ->where(function ($q) use ($cutoff): void {
+                $q->whereNull('last_heartbeat_at')->orWhere('last_heartbeat_at', '>=', $cutoff);
+            })
+            ->orderBy('joined_at')
+            ->pluck('member_id');
+
+        if ($memberIds->isEmpty()) {
+            /** @var Collection<int, Member> */
+            return new Collection;
+        }
+
+        return Member::query()->whereIn('id', $memberIds)->get();
+    }
+
+    public function isVoiceRoom(): bool
+    {
+        $hint = strtolower((string) ($this->room->description ?? ''));
+
+        return str_contains($hint, '🔊') || str_contains($hint, 'voice channel') || str_contains($hint, 'always-on voice');
+    }
+
+    public function joinVoiceRoom(): void
+    {
+        $member = $this->currentMember();
+        if ($member === null) {
+            return;
+        }
+
+        VoiceRoomPresence::query()->updateOrCreate(
+            ['room_id' => $this->room->id, 'member_id' => $member->id],
+            ['joined_at' => now(), 'last_heartbeat_at' => now()],
+        );
+
+        unset($this->voiceParticipants);
+    }
+
+    public function leaveVoiceRoom(): void
+    {
+        $member = $this->currentMember();
+        if ($member === null) {
+            return;
+        }
+
+        $presence = VoiceRoomPresence::query()
+            ->where('room_id', $this->room->id)
+            ->where('member_id', $member->id)
+            ->first();
+
+        $durationSeconds = $presence
+            ? max(0, (int) $presence->joined_at->diffInSeconds(now()))
+            : 0;
+
+        VoiceRoomPresence::query()
+            ->where('room_id', $this->room->id)
+            ->where('member_id', $member->id)
+            ->delete();
+
+        unset($this->voiceParticipants);
+
+        if ($durationSeconds >= 5) {
+            $this->postVoiceEndedMessage($member, $durationSeconds);
+        }
+    }
+
+    private function postVoiceEndedMessage(Member $member, int $durationSeconds): void
+    {
+        $minutes = (int) floor($durationSeconds / 60);
+        $seconds = $durationSeconds % 60;
+
+        $duration = match (true) {
+            $minutes < 1 => $seconds.'s',
+            $seconds === 0 => $minutes.'m',
+            default => $minutes.'m '.$seconds.'s',
+        };
+
+        $body = '<p><em>🎧 Voice chat ended · '.htmlspecialchars($duration, ENT_QUOTES | ENT_HTML5).'</em></p>';
+
+        Message::create([
+            'tenant_id' => $this->room->tenant_id,
+            'room_id' => $this->room->id,
+            'member_id' => $member->id,
+            'body' => $body,
+        ]);
+    }
+
+    public function heartbeatVoiceRoom(): void
+    {
+        $member = $this->currentMember();
+        if ($member === null) {
+            return;
+        }
+
+        VoiceRoomPresence::query()
+            ->where('room_id', $this->room->id)
+            ->where('member_id', $member->id)
+            ->update(['last_heartbeat_at' => now()]);
+
+        unset($this->voiceParticipants);
     }
 
     #[Computed]

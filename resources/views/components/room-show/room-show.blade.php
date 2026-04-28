@@ -101,6 +101,149 @@
             </div>
 
             @unless ($isDm)
+                @if ($this->isVoiceRoom())
+                    @php
+                        $voiceMembers = $this->voiceParticipants;
+                        $voiceCount = $voiceMembers->count();
+                        $currentMember = $this->currentMember;
+                        $imIn = $currentMember && $voiceMembers->contains(fn ($m) => $m->id === $currentMember->id);
+                    @endphp
+                    <div class="flex items-center gap-1"
+                         x-data="{
+                             joined: {{ $imIn ? 'true' : 'false' }},
+                             heartbeat: null,
+                             startHeartbeat() {
+                                 this.heartbeat = setInterval(() => $wire.call('heartbeatVoiceRoom'), 30000);
+                             },
+                             stopHeartbeat() {
+                                 if (this.heartbeat) clearInterval(this.heartbeat);
+                                 this.heartbeat = null;
+                             },
+                             playJoinSound() {
+                                 try {
+                                     const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                                     const tone = (freq, start, dur, volume = 0.18) => {
+                                         const osc = ctx.createOscillator();
+                                         const gain = ctx.createGain();
+                                         osc.type = 'sine';
+                                         osc.frequency.value = freq;
+                                         gain.gain.setValueAtTime(0, ctx.currentTime + start);
+                                         gain.gain.linearRampToValueAtTime(volume, ctx.currentTime + start + 0.02);
+                                         gain.gain.linearRampToValueAtTime(0, ctx.currentTime + start + dur);
+                                         osc.connect(gain).connect(ctx.destination);
+                                         osc.start(ctx.currentTime + start);
+                                         osc.stop(ctx.currentTime + start + dur + 0.05);
+                                     };
+                                     tone(523.25, 0, 0.10);
+                                     tone(783.99, 0.09, 0.18);
+                                 } catch (e) {}
+                             },
+                             join() {
+                                 this.joined = true;
+                                 this.playJoinSound();
+                                 $wire.call('joinVoiceRoom');
+                                 this.startHeartbeat();
+                                 $dispatch('modal-show', { name: 'voice-call-{{ $room->id }}' });
+                             },
+                             leave() {
+                                 this.joined = false;
+                                 this.stopHeartbeat();
+                                 $wire.call('leaveVoiceRoom');
+                                 $dispatch('modal-close', { name: 'voice-call-{{ $room->id }}' });
+                             },
+                             init() {
+                                 if (this.joined) this.startHeartbeat();
+                                 window.addEventListener('beforeunload', () => {
+                                     if (this.joined) {
+                                         navigator.sendBeacon('/voice-rooms/leave/{{ $room->id }}');
+                                     }
+                                 });
+                             },
+                         }">
+                        @if ($voiceCount > 0)
+                            <button type="button"
+                                    @click="$dispatch('modal-show', { name: 'voice-room-{{ $room->id }}' })"
+                                    title="{{ $voiceCount }} in voice"
+                                    class="flex items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1
+                                           hover:bg-emerald-100
+                                           dark:border-emerald-800 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/60">
+                                <span class="relative flex size-2 flex-shrink-0">
+                                    <span class="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span class="relative inline-flex size-2 rounded-full bg-emerald-500"></span>
+                                </span>
+                                <span class="flex -space-x-1.5">
+                                    @foreach ($voiceMembers->take(3) as $m)
+                                        <img src="{{ $m->avatar_url ?? 'https://ui-avatars.com/api/?name='.urlencode($m->display_name) }}"
+                                             alt="{{ $m->display_name }}"
+                                             class="size-5 rounded bg-zinc-200 ring-2 ring-emerald-50
+                                                    dark:bg-zinc-700 dark:ring-emerald-950">
+                                    @endforeach
+                                </span>
+                                <span class="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                                    {{ $voiceCount }}
+                                </span>
+                            </button>
+                        @endif
+                        <button x-show="! joined"
+                                type="button"
+                                @click="join()"
+                                class="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white
+                                       shadow-sm hover:bg-emerald-700">
+                            <flux:icon name="microphone" class="size-3.5" />
+                            Join voice
+                        </button>
+                        <button x-show="joined"
+                                type="button"
+                                @click="leave()"
+                                class="inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-2.5 py-1 text-xs font-semibold text-white
+                                       shadow-sm hover:bg-rose-700">
+                            <flux:icon name="phone-x-mark" class="size-3.5" />
+                            Leave
+                        </button>
+                    </div>
+
+                    <flux:modal name="voice-room-{{ $room->id }}" class="max-w-md">
+                        <div class="space-y-4">
+                            <div>
+                                <flux:heading size="lg" class="flex items-center gap-2">
+                                    <flux:icon name="microphone" class="size-5 text-emerald-600" />
+                                    #{{ $room->name }}
+                                </flux:heading>
+                                <flux:text class="mt-1">
+                                    {{ $voiceCount }} {{ \Illuminate\Support\Str::plural('person', $voiceCount) }} in voice right now.
+                                </flux:text>
+                            </div>
+                            <ul class="divide-y divide-zinc-200 dark:divide-zinc-800">
+                                @foreach ($voiceMembers as $vm)
+                                    <li class="flex items-center gap-3 py-2">
+                                        <span class="relative flex-shrink-0">
+                                            <img src="{{ $vm->avatar_url ?? 'https://ui-avatars.com/api/?name='.urlencode($vm->display_name) }}"
+                                                 alt="" class="size-9 rounded-md bg-zinc-200 dark:bg-zinc-700">
+                                            <span class="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border-2 border-white bg-emerald-500
+                                                         dark:border-zinc-900"></span>
+                                        </span>
+                                        <div class="min-w-0 flex-1">
+                                            <div class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                                                {{ $vm->display_name }}
+                                            </div>
+                                            @if ($vm->status_text)
+                                                <div class="truncate text-xs text-zinc-500 dark:text-zinc-400">
+                                                    {{ $vm->status_emoji }} {{ $vm->status_text }}
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </li>
+                                @endforeach
+                            </ul>
+                            <div class="flex justify-end">
+                                <flux:modal.close>
+                                    <flux:button variant="ghost" size="sm">Close</flux:button>
+                                </flux:modal.close>
+                            </div>
+                        </div>
+                    </flux:modal>
+                @endif
+
                 <button type="button"
                         title="{{ $memberCount }} {{ \Illuminate\Support\Str::plural('member', $memberCount) }}"
                         @click="$dispatch('modal-show', { name: 'channel-details' })"
@@ -191,8 +334,12 @@
                         <flux:icon name="phone" class="size-4" />
                     </button>
                 @else
+                    @php
+                        $isGamingWs = class_exists('App\\Support\\WorkspaceManager')
+                            && app('App\\Support\\WorkspaceManager')->current()?->theme === 'gaming';
+                    @endphp
                     <button type="button"
-                            title="Start or join meeting in this channel"
+                            title="{{ $isGamingWs ? 'Start voice + screen share' : 'Start or join meeting in this channel' }}"
                             data-room-id="{{ $room->id }}"
                             data-room-name="{{ $room->name }}"
                             @click="$dispatch('bonfire-join-meeting', {
@@ -201,7 +348,7 @@
                             })"
                             class="rounded p-1.5 text-emerald-600 hover:bg-emerald-50
                                    dark:text-emerald-400 dark:hover:bg-emerald-950/30">
-                        <flux:icon name="video-camera" class="size-4" />
+                        <flux:icon :name="$isGamingWs ? 'tv' : 'video-camera'" class="size-4" />
                     </button>
                 @endif
 
@@ -253,7 +400,7 @@
 
     <div class="relative flex min-h-0 flex-1">
         <div class="flex min-h-0 flex-1 flex-col">
-            <livewire:bonfire::message-list :room="$room" wire:key="room-{{ $room->id }}-list" />
+            <livewire:bonfire::message-list :room="$room" :previous-read-at="$previousReadAt" wire:key="room-{{ $room->id }}-list" />
 
             <div class="flex-shrink-0 border-t border-zinc-200 px-4 py-3
                         dark:border-zinc-800">
@@ -341,6 +488,126 @@
             </p>
         </div>
     </flux:modal>
+
+    @if ($this->isVoiceRoom())
+        @php
+            $voiceCallRoomName = 'bonfire-voice-'.\Illuminate\Support\Str::slug(config('app.name', 'app')).'-room-'.$room->id;
+        @endphp
+
+        <flux:modal name="voice-call-{{ $room->id }}" class="!max-w-2xl"
+                    x-data="{
+                        joined: false,
+                        speakerId: null,
+                        muted: true,
+                        api: null,
+                        loadJitsi() {
+                            if (window.JitsiMeetExternalAPI) return Promise.resolve();
+                            return new Promise((resolve, reject) => {
+                                const s = document.createElement('script');
+                                s.src = 'https://meet.jit.si/external_api.js';
+                                s.onload = () => resolve();
+                                s.onerror = () => reject();
+                                document.head.appendChild(s);
+                            });
+                        },
+                        async startCall() {
+                            await this.loadJitsi();
+                            const opts = {
+                                roomName: @js($voiceCallRoomName),
+                                parentNode: this.$refs.jitsiHost,
+                                width: '100%',
+                                height: '100%',
+                                userInfo: { displayName: @js($callDisplayName) },
+                                configOverwrite: {
+                                    startWithAudioMuted: true,
+                                    startWithVideoMuted: true,
+                                    startAudioOnly: true,
+                                    disableDeepLinking: true,
+                                    prejoinConfig: { enabled: false },
+                                    toolbarButtons: ['microphone', 'desktop', 'tileview', 'settings', 'hangup'],
+                                },
+                                interfaceConfigOverwrite: {
+                                    SHOW_JITSI_WATERMARK: false,
+                                    SHOW_WATERMARK_FOR_GUESTS: false,
+                                    MOBILE_APP_PROMO: false,
+                                    DISABLE_VIDEO_BACKGROUND: true,
+                                },
+                            };
+                            this.api = new JitsiMeetExternalAPI('meet.jit.si', opts);
+                            this.api.addEventListener('dominantSpeakerChanged', (e) => {
+                                this.speakerId = e.id;
+                            });
+                            this.api.addEventListener('audioMuteStatusChanged', (e) => {
+                                this.muted = e.muted;
+                            });
+                            this.api.addEventListener('readyToClose', () => {
+                                $dispatch('modal-close', { name: 'voice-call-{{ $room->id }}' });
+                            });
+                        },
+                        stopCall() {
+                            if (this.api) { try { this.api.dispose(); } catch (e) {} }
+                            this.api = null;
+                            this.speakerId = null;
+                        },
+                    }"
+                    x-on:modal-show.window="if ($event.detail?.name === 'voice-call-{{ $room->id }}' && ! joined) { joined = true; $nextTick(() => startCall()); }"
+                    x-on:close="joined = false; stopCall()">
+            <div class="flex flex-col gap-4">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <flux:heading size="lg" class="flex items-center gap-2">
+                            <flux:icon name="microphone" variant="solid" class="size-5 text-emerald-500" />
+                            #{{ $room->name }}
+                        </flux:heading>
+                        <flux:text class="mt-0.5 text-xs">
+                            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700
+                                         dark:bg-emerald-950/40 dark:text-emerald-300">
+                                <span class="size-1.5 rounded-full bg-emerald-500"></span>
+                                Voice chat · audio + screen share only
+                            </span>
+                        </flux:text>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                    @foreach ($this->voiceParticipants as $vm)
+                        <div :class="speakerId && @js($vm->id) == speakerId
+                            ? 'border-emerald-400 bg-emerald-50 ring-2 ring-emerald-300 dark:border-emerald-500 dark:bg-emerald-950/40 dark:ring-emerald-700'
+                            : 'border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900'"
+                             class="flex flex-col items-center gap-2 rounded-xl border p-3 transition-colors">
+                            <div class="relative">
+                                <img src="{{ $vm->avatar_url ?? 'https://ui-avatars.com/api/?name='.urlencode($vm->display_name) }}"
+                                     alt="{{ $vm->display_name }}"
+                                     class="size-14 rounded-full bg-zinc-200 object-cover dark:bg-zinc-700">
+                                <span class="absolute -right-0.5 -bottom-0.5 flex size-4 items-center justify-center rounded-full border-2 border-zinc-50 bg-emerald-500 text-white
+                                             dark:border-zinc-900">
+                                    <flux:icon name="microphone" class="size-2.5" />
+                                </span>
+                            </div>
+                            <span class="line-clamp-1 text-center text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                                {{ $vm->display_name }}
+                            </span>
+                        </div>
+                    @endforeach
+                </div>
+
+                <div class="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700"
+                     style="min-height: 200px;">
+                    <div x-ref="jitsiHost" class="h-full w-full"></div>
+                </div>
+
+                <div class="flex items-center justify-between border-t border-zinc-200 pt-3 dark:border-zinc-700">
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                        Audio-only voice chat. Use the toolbar to share your screen.
+                    </p>
+                    <flux:button variant="danger" size="sm" icon="phone-x-mark"
+                                 @click="$dispatch('modal-close', { name: 'voice-call-{{ $room->id }}' }); $wire.call('leaveVoiceRoom');">
+                        Leave voice chat
+                    </flux:button>
+                </div>
+            </div>
+        </flux:modal>
+    @endif
 
     <flux:modal name="channel-details" class="max-w-lg">
         @php

@@ -46,29 +46,6 @@
     <div class="mx-auto w-full max-w-5xl px-4 py-10
                 sm:px-6
                 lg:px-8">
-    <header class="flex flex-wrap items-start justify-between gap-4 pb-6">
-        <div class="space-y-2">
-            <h1 class="text-3xl font-semibold tracking-tight text-zinc-900
-                       dark:text-zinc-100
-                       sm:text-4xl">
-                Admin
-            </h1>
-            <p class="text-sm text-zinc-500 dark:text-zinc-400">
-                Manage channels, members, and feature flags for your workspace.
-            </p>
-        </div>
-        @if (\Illuminate\Support\Facades\Route::has('workspace.settings'))
-            <a href="{{ route('workspace.settings') }}"
-               wire:navigate
-               class="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-700
-                      shadow-sm transition hover:bg-zinc-50
-                      dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800">
-                <flux:icon name="cog-6-tooth" variant="solid" class="size-4" />
-                Workspace settings
-            </a>
-        @endif
-    </header>
-
     <flux:separator />
 
     <div class="mt-6 flex flex-wrap items-center gap-x-8 gap-y-2 border-b border-zinc-200 dark:border-zinc-800">
@@ -92,18 +69,6 @@
             <flux:icon name="users" class="size-4" />
             Members
         </button>
-        @if ($this->showFeatures)
-            <button type="button"
-                    wire:click="$set('tab', 'features')"
-                    @class([
-                        'relative -mb-px flex items-center gap-2 px-1 py-3 text-sm transition',
-                        'border-b-2 border-zinc-900 font-semibold text-zinc-900 dark:border-zinc-100 dark:text-zinc-100' => $tab === 'features',
-                        'border-b-2 border-transparent font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200' => $tab !== 'features',
-                    ])>
-                <flux:icon name="adjustments-horizontal" class="size-4" />
-                Feature flags
-            </button>
-        @endif
     </div>
 
     @if ($tab === 'rooms')
@@ -438,10 +403,6 @@
                     @endforelse
                 </ul>
             </div>
-        </section>
-    @elseif ($tab === 'features' && $this->showFeatures)
-        <section class="mt-8">
-            <livewire:admin.feature-flags scope="workspace" />
         </section>
     @else
         <section class="mt-8 space-y-6">

@@ -1,5 +1,6 @@
 <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto"
      data-search="{{ $this->search }}"
+     wire:poll.30s="onMessagePosted"
      x-data="{
          pinned: true,
          typing: {},
@@ -164,6 +165,12 @@
                  this.forceScrollNext = true;
              });
 
+             // When a scheduled message's time arrives, fetch latest and scroll to it.
+             window.addEventListener('bonfire-refresh-messages', () => {
+                 this.forceScrollNext = true;
+                 this.$wire.call('onMessagePosted');
+             });
+
              // If the URL has a #m-123 hash when we arrive, jump to that message.
              this.$nextTick(() => this.focusHashMessage());
              window.addEventListener('hashchange', () => this.focusHashMessage());
@@ -202,6 +209,11 @@
     @php
         $previous = null;
         $groupThresholdSeconds = 5 * 60;
+        $previousReadCarbon = $this->previousReadAt
+            ? \Illuminate\Support\Carbon::parse($this->previousReadAt)
+            : null;
+        $newDividerShown = false;
+        $currentMember = $this->currentMember;
     @endphp
 
     @if ($this->messages->hasMorePages())
@@ -224,7 +236,26 @@
                     && $message->created_at
                     && $previous->created_at->diffInSeconds($message->created_at) <= $groupThresholdSeconds;
                 $previous = $message;
+                $isUnread = ! $newDividerShown
+                    && $previousReadCarbon !== null
+                    && $message->created_at
+                    && $message->created_at->greaterThan($previousReadCarbon)
+                    && (! $currentMember || $message->member_id !== $currentMember->id);
+                if ($isUnread) {
+                    $newDividerShown = true;
+                }
             @endphp
+            @if ($isUnread)
+                <li wire:key="new-divider-{{ $message->id }}"
+                    class="relative my-2 flex items-center gap-3 px-4">
+                    <div class="h-px flex-1 bg-rose-400 dark:bg-rose-500"></div>
+                    <span class="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-rose-600
+                                 dark:bg-rose-950/60 dark:text-rose-400">
+                        New
+                    </span>
+                    <div class="h-px flex-1 bg-rose-400 dark:bg-rose-500"></div>
+                </li>
+            @endif
             <li wire:key="message-{{ $message->id }}"
                 id="m-{{ $message->id }}"
                 class="group relative flex gap-3 px-4 {{ $sameAuthor ? 'py-0.5' : 'mt-3 py-1 first:mt-0' }}

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use ArtisanBuild\Bonfire\Enums\BonfireRole;
 use ArtisanBuild\Bonfire\Enums\RoomType;
 use ArtisanBuild\Bonfire\Events\MessageEdited;
+use ArtisanBuild\Bonfire\Events\MessagePosted;
 use ArtisanBuild\Bonfire\Events\PollVoted;
 use ArtisanBuild\Bonfire\Facades\Bonfire;
 use ArtisanBuild\Bonfire\Models\Member;
@@ -31,9 +32,12 @@ return new class extends Component
 
     public string $search = '';
 
-    public function mount(Room $room): void
+    public ?string $previousReadAt = null;
+
+    public function mount(Room $room, ?string $previousReadAt = null): void
     {
         $this->room = $room;
+        $this->previousReadAt = $previousReadAt;
     }
 
     #[On('bonfire-search')]
@@ -69,7 +73,37 @@ return new class extends Component
     #[On('echo-presence:bonfire.room.{room.id},.message.posted')]
     public function onMessagePosted(): void
     {
+        $this->releaseDueScheduledMessages();
         unset($this->messages);
+    }
+
+    #[On('bonfire-scheduled-released')]
+    public function onScheduledReleased(): void
+    {
+        unset($this->messages);
+    }
+
+    /**
+     * Convert any scheduled messages in this room whose time has come into
+     * regular messages so they broadcast and appear in everyone's list.
+     */
+    private function releaseDueScheduledMessages(): void
+    {
+        $due = Message::query()
+            ->where('room_id', $this->room->getKey())
+            ->whereNotNull('scheduled_for')
+            ->where('scheduled_for', '<=', now())
+            ->get();
+
+        foreach ($due as $message) {
+            $scheduledAt = $message->scheduled_for;
+            $message->forceFill([
+                'scheduled_for' => null,
+                'created_at' => $scheduledAt ?? now(),
+            ])->save();
+
+            event(new MessagePosted($message));
+        }
     }
 
     #[On('echo-presence:bonfire.room.{room.id},.message.deleted')]

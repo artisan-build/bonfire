@@ -519,11 +519,10 @@
               return `${m}:${s.toString().padStart(2, '0')}`;
           },
 
-          /** Commit the message immediately at the chosen time so the composer is free to start a new draft. */
+          /** Stage the schedule time. The user clicks Schedule to actually queue the message. */
           chooseSchedule(value) {
               this.scheduledFor = value;
               this.scheduleOpen = false;
-              this.$nextTick(() => this.submitForm());
           },
           clearSchedule() {
               this.scheduledFor = null;
@@ -534,7 +533,6 @@
               if (! this.scheduleCustom) return;
               this.scheduledFor = this.scheduleCustom;
               this.scheduleOpen = false;
-              this.$nextTick(() => this.submitForm());
           },
           get scheduleLabel() {
               if (! this.scheduledFor) return '';
@@ -545,6 +543,20 @@
                   return this.scheduledFor;
               }
           },
+          get scheduleRelative() {
+              if (! this.scheduledFor) return '';
+              try {
+                  const diff = Math.max(0, new Date(this.scheduledFor).getTime() - Date.now());
+                  const min = Math.round(diff / 60000);
+                  if (min < 1) return 'in <1m';
+                  if (min < 60) return 'in ' + min + 'm';
+                  const hours = Math.floor(min / 60);
+                  const remMin = min % 60;
+                  if (hours < 24) return remMin > 0 ? 'in ' + hours + 'h ' + remMin + 'm' : 'in ' + hours + 'h';
+                  const days = Math.floor(hours / 24);
+                  return days === 1 ? 'tomorrow' : 'in ' + days + 'd';
+              } catch (e) { return ''; }
+          },
           get presetTimes() {
               const now = new Date();
               const in1h = new Date(now.getTime() + 60 * 60 * 1000);
@@ -553,7 +565,8 @@
               const day = nextMon.getDay();
               const add = (8 - day) % 7 || 7;
               nextMon.setDate(nextMon.getDate() + add); nextMon.setHours(9, 0, 0, 0);
-              const fmt = (d) => d.toISOString().slice(0, 16);
+              const pad = (n) => String(n).padStart(2, '0');
+              const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
               return [
                   { label: 'In 1 hour', value: fmt(in1h) },
                   { label: 'Tomorrow at 9:00 AM', value: fmt(tmr) },
@@ -578,27 +591,359 @@
                 ? 'today at '.$scheduledCarbon->format('g:i A')
                 : $scheduledCarbon->format('D M j').' at '.$scheduledCarbon->format('g:i A');
             $scheduledTotal = $this->scheduledMessagesCount();
+            $scheduledIso = $scheduledCarbon->toIso8601String();
+            $scheduledMessage = $this->lastScheduledMessage;
+            $scheduledLocalInput = $scheduledCarbon->copy()->format('Y-m-d\TH:i');
+            $scheduledBodyPlain = $scheduledMessage
+                ? trim(strip_tags(html_entity_decode((string) $scheduledMessage->body, ENT_QUOTES | ENT_HTML5)))
+                : '';
         @endphp
 
-        <div class="mb-2 flex items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs
-                    text-zinc-700
-                    dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-            <flux:icon name="clock" class="size-4 flex-shrink-0 text-zinc-500" />
-            <span>Your message will be sent <strong>{{ $scheduledLabel }}</strong>.</span>
-            <button type="button"
-                    class="font-medium text-sky-600 hover:underline dark:text-sky-400">
-                See all scheduled messages
-                @if ($scheduledTotal > 1)
-                    ({{ $scheduledTotal }})
-                @endif
-            </button>
+        <div class="mb-2 flex items-center gap-2 rounded-md border-2 border-sky-300 bg-sky-50 px-3 py-2 text-xs
+                    text-sky-900
+                    dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100"
+             x-data="{
+                 now: Date.now(),
+                 init() {
+                     setInterval(() => {
+                         this.now = Date.now();
+                         if (this.target && this.target <= this.now) {
+                             $wire.call('dismissScheduled');
+                             window.dispatchEvent(new CustomEvent('bonfire-refresh-messages'));
+                         }
+                     }, 5000);
+                 },
+                 get target() {
+                     const v = $wire.lastScheduledAt;
+                     return v ? new Date(v).getTime() : 0;
+                 },
+                 get relative() {
+                     if (! this.target) return '';
+                     const diff = Math.max(0, this.target - this.now);
+                     const min = Math.round(diff / 60000);
+                     if (min < 1) return 'in less than a minute';
+                     if (min < 60) return 'in ' + min + ' min';
+                     const hours = Math.floor(min / 60);
+                     const remMin = min % 60;
+                     if (hours < 24) return remMin > 0 ? 'in ' + hours + 'h ' + remMin + 'm' : 'in ' + hours + 'h';
+                     const days = Math.floor(hours / 24);
+                     return days === 1 ? 'tomorrow' : 'in ' + days + ' days';
+                 },
+             }">
+            <span class="flex size-7 flex-shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700
+                         dark:bg-sky-900/60 dark:text-sky-300">
+                <flux:icon name="clock" variant="solid" class="size-4" />
+            </span>
+            <div class="flex-1 leading-tight">
+                <div class="font-semibold">
+                    Sending <span x-text="relative"></span>
+                </div>
+                <div class="text-[11px] opacity-80">
+                    {{ $scheduledLabel }}
+                </div>
+            </div>
+            @if ($scheduledTotal > 1)
+                <button type="button"
+                        @click="$dispatch('modal-show', { name: 'all-scheduled-{{ $this->getId() }}' })"
+                        title="Manage all scheduled messages"
+                        class="inline-flex items-center gap-1 rounded-md border border-sky-300 bg-white px-2 py-1 text-[11px] font-semibold text-sky-700
+                               shadow-sm hover:bg-sky-100
+                               dark:border-sky-800 dark:bg-zinc-900 dark:text-sky-200 dark:hover:bg-sky-950/60">
+                    <flux:icon name="queue-list" class="size-3" />
+                    All ({{ $scheduledTotal }})
+                </button>
+            @endif
+            @if ($scheduledMessage)
+                <button type="button"
+                        @click="$dispatch('open-edit-scheduled', {
+                            id: {{ $scheduledMessage->id }},
+                            body: @js($scheduledBodyPlain),
+                            time: @js($scheduledLocalInput)
+                        })"
+                        title="Edit scheduled message"
+                        class="inline-flex items-center gap-1 rounded-md border border-sky-300 bg-white px-2 py-1 text-[11px] font-semibold text-sky-700
+                               shadow-sm hover:bg-sky-100
+                               dark:border-sky-800 dark:bg-zinc-900 dark:text-sky-200 dark:hover:bg-sky-950/60">
+                    <flux:icon name="pencil-square" class="size-3" />
+                    Edit
+                </button>
+            @endif
             <button type="button"
                     wire:click="dismissScheduled"
-                    class="ml-auto rounded p-0.5 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700
-                           dark:hover:bg-zinc-800 dark:hover:text-zinc-200">
+                    title="Dismiss"
+                    class="rounded p-1 text-sky-700/70 hover:bg-sky-100 hover:text-sky-900
+                           dark:text-sky-300/70 dark:hover:bg-sky-900/40 dark:hover:text-sky-100">
                 <flux:icon name="x-mark" class="size-3.5" />
             </button>
         </div>
+
+        <flux:modal name="edit-scheduled-{{ $this->getId() }}" class="max-w-lg">
+            <div class="space-y-4"
+                 x-data="{
+                     editId: null,
+                     editBody: '',
+                     editTime: '',
+                     save() {
+                         if (! this.editId) return;
+                         $wire.updateScheduledMessage(this.editId, this.editBody, this.editTime);
+                         $dispatch('modal-close', { name: 'edit-scheduled-{{ $this->getId() }}' });
+                     },
+                     sendNow() {
+                         if (! this.editId) return;
+                         $dispatch('modal-close', { name: 'edit-scheduled-{{ $this->getId() }}' });
+                         setTimeout(() => $dispatch('open-confirm-scheduled', {
+                             type: 'send-now',
+                             id: this.editId,
+                             preview: this.editBody,
+                         }), 150);
+                     },
+                     cancelMsg() {
+                         if (! this.editId) return;
+                         $dispatch('modal-close', { name: 'edit-scheduled-{{ $this->getId() }}' });
+                         setTimeout(() => $dispatch('open-confirm-scheduled', {
+                             type: 'cancel',
+                             id: this.editId,
+                             preview: this.editBody,
+                         }), 150);
+                     },
+                 }"
+                 @open-edit-scheduled.window="
+                     editId = $event.detail.id;
+                     editBody = $event.detail.body;
+                     editTime = $event.detail.time;
+                     $dispatch('modal-show', { name: 'edit-scheduled-{{ $this->getId() }}' });
+                 ">
+                <div>
+                    <flux:heading size="lg">Edit scheduled message</flux:heading>
+                    <flux:text class="mt-1">Update the message text or send time before it goes out.</flux:text>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wide text-zinc-500
+                                  dark:text-zinc-400">
+                        Message
+                    </label>
+                    <textarea x-model="editBody"
+                              rows="4"
+                              class="mt-1 block w-full resize-y rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm
+                                     focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500
+                                     dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wide text-zinc-500
+                                  dark:text-zinc-400">
+                        Send at
+                    </label>
+                    <input type="datetime-local"
+                           x-model="editTime"
+                           class="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm
+                                  focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500
+                                  dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 pt-3
+                            dark:border-zinc-700">
+                    <div class="flex items-center gap-2">
+                        <flux:button variant="danger" size="sm" icon="trash" @click="cancelMsg()">
+                            Cancel scheduled
+                        </flux:button>
+                        <flux:button variant="ghost" size="sm" icon="paper-airplane" @click="sendNow()">
+                            Send now
+                        </flux:button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <flux:modal.close>
+                            <flux:button variant="ghost" size="sm">Close</flux:button>
+                        </flux:modal.close>
+                        <flux:button variant="primary" size="sm" icon="check" @click="save()">
+                            Save
+                        </flux:button>
+                    </div>
+                </div>
+            </div>
+        </flux:modal>
+
+        @if ($scheduledTotal > 1)
+            <flux:modal name="all-scheduled-{{ $this->getId() }}" class="max-w-2xl">
+                <div class="space-y-4">
+                    <div>
+                        <flux:heading size="lg">Scheduled messages</flux:heading>
+                        <flux:text class="mt-1">
+                            {{ $scheduledTotal }} of {{ $this->maxScheduled() }} queued.
+                            Edit, send now, or cancel any of them.
+                        </flux:text>
+                    </div>
+
+                    <ul class="max-h-[28rem] divide-y divide-zinc-200 overflow-y-auto rounded-md border border-zinc-200
+                               dark:divide-zinc-800 dark:border-zinc-700">
+                        @foreach ($this->scheduledMessages as $sm)
+                            @php
+                                $smCarbon = $sm->scheduled_for;
+                                $smLocalInput = $smCarbon->copy()->format('Y-m-d\TH:i');
+                                $smPlain = trim(strip_tags(html_entity_decode((string) $sm->body, ENT_QUOTES | ENT_HTML5)));
+                                $smPreview = \Illuminate\Support\Str::limit($smPlain, 140);
+                                $smLabel = $smCarbon->isToday()
+                                    ? 'today at '.$smCarbon->format('g:i A')
+                                    : $smCarbon->format('D M j').' at '.$smCarbon->format('g:i A');
+                            @endphp
+                            <li class="flex items-start gap-3 px-3 py-2.5">
+                                <flux:icon name="clock" class="mt-0.5 size-4 flex-shrink-0 text-sky-500" />
+                                <div class="min-w-0 flex-1">
+                                    <div class="truncate text-sm text-zinc-900 dark:text-zinc-100">
+                                        {{ $smPreview ?: '(empty)' }}
+                                    </div>
+                                    <div class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                                        {{ $smLabel }}
+                                    </div>
+                                </div>
+                                <div class="flex flex-shrink-0 items-center gap-1">
+                                    <button type="button"
+                                            title="Edit"
+                                            @click="
+                                                $dispatch('modal-close', { name: 'all-scheduled-{{ $this->getId() }}' });
+                                                setTimeout(() => $dispatch('open-edit-scheduled', {
+                                                    id: {{ $sm->id }},
+                                                    body: @js($smPlain),
+                                                    time: @js($smLocalInput)
+                                                }), 150);
+                                            "
+                                            class="rounded p-1 text-zinc-500 hover:bg-zinc-100 hover:text-sky-600
+                                                   dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-sky-400">
+                                        <flux:icon name="pencil-square" class="size-4" />
+                                    </button>
+                                    <button type="button"
+                                            title="Send now"
+                                            @click="
+                                                $dispatch('modal-close', { name: 'all-scheduled-{{ $this->getId() }}' });
+                                                setTimeout(() => $dispatch('open-confirm-scheduled', {
+                                                    type: 'send-now',
+                                                    id: {{ $sm->id }},
+                                                    preview: @js($smPlain),
+                                                }), 150);
+                                            "
+                                            class="rounded p-1 text-zinc-500 hover:bg-zinc-100 hover:text-emerald-600
+                                                   dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-emerald-400">
+                                        <flux:icon name="paper-airplane" class="size-4" />
+                                    </button>
+                                    <button type="button"
+                                            title="Cancel"
+                                            @click="
+                                                $dispatch('modal-close', { name: 'all-scheduled-{{ $this->getId() }}' });
+                                                setTimeout(() => $dispatch('open-confirm-scheduled', {
+                                                    type: 'cancel',
+                                                    id: {{ $sm->id }},
+                                                    preview: @js($smPlain),
+                                                }), 150);
+                                            "
+                                            class="rounded p-1 text-zinc-500 hover:bg-rose-50 hover:text-rose-600
+                                                   dark:text-zinc-400 dark:hover:bg-rose-950 dark:hover:text-rose-400">
+                                        <flux:icon name="trash" class="size-4" />
+                                    </button>
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+
+                    <div class="flex justify-end">
+                        <flux:modal.close>
+                            <flux:button variant="ghost" size="sm">Close</flux:button>
+                        </flux:modal.close>
+                    </div>
+                </div>
+            </flux:modal>
+        @endif
+
+        <flux:modal name="confirm-scheduled-{{ $this->getId() }}" class="max-w-md">
+            <div class="space-y-4"
+                 x-data="{
+                     type: 'cancel',
+                     id: null,
+                     preview: '',
+                     get isCancel() { return this.type === 'cancel'; },
+                     confirm() {
+                         if (! this.id) return;
+                         if (this.isCancel) {
+                             $wire.cancelScheduledMessage(this.id);
+                         } else {
+                             $wire.sendScheduledNow(this.id);
+                         }
+                         $dispatch('modal-close', { name: 'confirm-scheduled-{{ $this->getId() }}' });
+                     },
+                 }"
+                 @open-confirm-scheduled.window="
+                     type = $event.detail.type;
+                     id = $event.detail.id;
+                     preview = ($event.detail.preview || '').slice(0, 200);
+                     $dispatch('modal-show', { name: 'confirm-scheduled-{{ $this->getId() }}' });
+                 ">
+                <div class="flex items-start gap-3">
+                    <span class="flex size-10 flex-shrink-0 items-center justify-center rounded-full"
+                          :class="isCancel
+                              ? 'bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-300'
+                              : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300'">
+                        <template x-if="isCancel">
+                            <flux:icon name="trash" variant="solid" class="size-5" />
+                        </template>
+                        <template x-if="! isCancel">
+                            <flux:icon name="paper-airplane" variant="solid" class="size-5" />
+                        </template>
+                    </span>
+                    <div class="flex-1">
+                        <flux:heading size="lg">
+                            <span x-show="isCancel">Cancel this scheduled message?</span>
+                            <span x-show="! isCancel">Send this message right now?</span>
+                        </flux:heading>
+                        <flux:text class="mt-1.5">
+                            <span x-show="isCancel">
+                                Your message won't be delivered, and the draft will be deleted.
+                                You can't undo this — once it's gone, it's gone.
+                            </span>
+                            <span x-show="! isCancel">
+                                Skip the schedule and post this message to the channel immediately.
+                                Everyone in the channel will see it now.
+                            </span>
+                        </flux:text>
+                    </div>
+                </div>
+
+                <div x-show="preview"
+                     class="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700
+                            dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-300">
+                    <div class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500
+                                dark:text-zinc-400">
+                        Message preview
+                    </div>
+                    <p class="line-clamp-3 whitespace-pre-wrap break-words" x-text="preview || ''"></p>
+                </div>
+
+                <div class="flex justify-end gap-2">
+                    <flux:modal.close>
+                        <flux:button variant="ghost" size="sm">
+                            <span x-show="isCancel">Keep it</span>
+                            <span x-show="! isCancel">Wait</span>
+                        </flux:button>
+                    </flux:modal.close>
+                    <button type="button"
+                            @click="confirm()"
+                            :class="isCancel
+                                ? 'bg-rose-600 hover:bg-rose-700 focus:ring-rose-500'
+                                : 'bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500'"
+                            class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold text-white
+                                   shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2
+                                   focus:ring-offset-white dark:focus:ring-offset-zinc-900">
+                        <template x-if="isCancel">
+                            <flux:icon name="trash" class="size-4" />
+                        </template>
+                        <template x-if="! isCancel">
+                            <flux:icon name="paper-airplane" class="size-4" />
+                        </template>
+                        <span x-show="isCancel">Yes, cancel it</span>
+                        <span x-show="! isCancel">Send now</span>
+                    </button>
+                </div>
+            </div>
+        </flux:modal>
     @endif
 
     <form wire:submit="send"
@@ -766,9 +1111,18 @@
             </div>
         </template>
 
+        @php
+            $isGamingTheme = false;
+            if (class_exists('App\\Support\\WorkspaceManager')) {
+                $isGamingTheme = app('App\\Support\\WorkspaceManager')->current()?->theme === 'gaming';
+            }
+            $editorToolbar = $isGamingTheme
+                ? 'bold italic strike | link'
+                : 'bold italic strike | bullet ordered blockquote | link | code';
+        @endphp
         <flux:editor wire:model.live.debounce.500ms="body"
                      @input.debounce.250ms="whisperTyping()"
-                     toolbar="bold italic strike | bullet ordered blockquote | link | code" />
+                     :toolbar="$editorToolbar" />
 
         @if ($this->parentId !== null)
             <label class="flex items-center gap-2 px-1 text-xs text-zinc-600 dark:text-zinc-400">
@@ -858,12 +1212,16 @@
 
             <div class="flex items-center gap-2">
                 <span x-show="scheduledFor"
-                      class="inline-flex items-center gap-1 rounded-md bg-sky-100 px-2 py-1 text-xs text-sky-800
-                             dark:bg-sky-950/50 dark:text-sky-300"
+                      class="inline-flex items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-2 py-1 text-xs font-medium text-sky-900
+                             dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-200"
                       style="display: none;">
-                    <flux:icon name="clock" class="size-3.5" />
-                    Scheduled: <span x-text="scheduleLabel"></span>
-                    <button type="button" @click="clearSchedule()" class="hover:text-sky-950 dark:hover:text-sky-100">
+                    <flux:icon name="clock" variant="solid" class="size-3.5 text-sky-600 dark:text-sky-400" />
+                    <span>Will send <strong x-text="scheduleRelative"></strong> · <span x-text="scheduleLabel"></span></span>
+                    <button type="button"
+                            @click="clearSchedule()"
+                            title="Cancel schedule"
+                            class="ml-0.5 rounded p-0.5 hover:bg-sky-100 hover:text-sky-950
+                                   dark:hover:bg-sky-900/60 dark:hover:text-sky-50">
                         <flux:icon name="x-mark" class="size-3.5" />
                     </button>
                 </span>

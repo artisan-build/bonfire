@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use ArtisanBuild\Bonfire\Enums\BonfireRole;
+use ArtisanBuild\Bonfire\Events\MessagePosted;
 use ArtisanBuild\Bonfire\Facades\Bonfire;
 use ArtisanBuild\Bonfire\Models\Attachment;
 use ArtisanBuild\Bonfire\Models\Member;
@@ -20,6 +21,8 @@ return new class extends Component
 {
     use WithFileUploads;
 
+    private const MAX_SCHEDULED_MESSAGES = 10;
+
     public Room $room;
 
     public ?int $parentId = null;
@@ -29,6 +32,8 @@ return new class extends Component
     public ?string $scheduledFor = null;
 
     public ?string $lastScheduledAt = null;
+
+    public ?int $lastScheduledMessageId = null;
 
     public bool $alsoSendToChannel = false;
 
@@ -185,6 +190,12 @@ return new class extends Component
             $scheduledAt = null;
         }
 
+        if ($scheduledAt !== null && $this->scheduledMessagesCount() >= self::MAX_SCHEDULED_MESSAGES) {
+            $this->dispatch('bonfire-toast', message: 'You can have at most '.self::MAX_SCHEDULED_MESSAGES.' scheduled messages. Send or cancel one first.');
+
+            return;
+        }
+
         // /poll slash-command: replace body with the bare question (the slash-command
         // string itself is not useful as visible body). Staged poll: keep the user's
         // typed body so @mentions and accompanying text survive.
@@ -202,6 +213,7 @@ return new class extends Component
 
         if ($scheduledAt !== null) {
             $this->lastScheduledAt = $scheduledAt->toIso8601String();
+            $this->lastScheduledMessageId = $message->getKey();
         }
 
         $this->pendingPoll = null;
@@ -268,7 +280,161 @@ return new class extends Component
 
     public function dismissScheduled(): void
     {
+        $this->releaseDueOwnedScheduledMessages();
+
         $this->lastScheduledAt = null;
+        $this->lastScheduledMessageId = null;
+    }
+
+    /**
+     * Convert any scheduled messages owned by the current member whose
+     * scheduled_for has come due into regular posted messages, broadcasting
+     * each so listeners refresh.
+     */
+    private function releaseDueOwnedScheduledMessages(): void
+    {
+        $member = $this->member();
+        if ($member === null) {
+            return;
+        }
+
+        $due = Message::query()
+            ->where('member_id', $member->id)
+            ->whereNotNull('scheduled_for')
+            ->where('scheduled_for', '<=', now())
+            ->get();
+
+        foreach ($due as $message) {
+            $scheduledAt = $message->scheduled_for;
+            $message->forceFill([
+                'scheduled_for' => null,
+                'created_at' => $scheduledAt ?? now(),
+            ])->save();
+
+            event(new MessagePosted($message));
+        }
+
+        if ($due->isNotEmpty()) {
+            $this->dispatch('bonfire-scheduled-released');
+        }
+    }
+
+    #[Computed]
+    public function lastScheduledMessage(): ?Message
+    {
+        if ($this->lastScheduledMessageId === null) {
+            return null;
+        }
+
+        return $this->findScheduledMessageForCurrentMember($this->lastScheduledMessageId);
+    }
+
+    /**
+     * @return Collection<int, Message>
+     */
+    #[Computed]
+    public function scheduledMessages(): Collection
+    {
+        $member = $this->member();
+        if ($member === null) {
+            /** @var Collection<int, Message> */
+            return new Collection;
+        }
+
+        return Message::query()
+            ->where('member_id', $member->id)
+            ->whereNotNull('scheduled_for')
+            ->where('scheduled_for', '>', now())
+            ->orderBy('scheduled_for')
+            ->limit(self::MAX_SCHEDULED_MESSAGES)
+            ->get();
+    }
+
+    public function getMaxScheduledReachedProperty(): bool
+    {
+        return $this->scheduledMessagesCount() >= self::MAX_SCHEDULED_MESSAGES;
+    }
+
+    public function maxScheduled(): int
+    {
+        return self::MAX_SCHEDULED_MESSAGES;
+    }
+
+    public function updateScheduledMessage(int $id, string $body, string $newTime): void
+    {
+        $message = $this->findScheduledMessageForCurrentMember($id);
+        if ($message === null) {
+            return;
+        }
+
+        $newAt = Carbon::parse($newTime);
+        if ($newAt->isPast()) {
+            return;
+        }
+
+        $message->update([
+            'body' => $body,
+            'scheduled_for' => $newAt,
+        ]);
+
+        if ($id === $this->lastScheduledMessageId) {
+            $this->lastScheduledAt = $newAt->toIso8601String();
+        }
+
+        unset($this->lastScheduledMessage, $this->scheduledMessages);
+    }
+
+    public function cancelScheduledMessage(int $id): void
+    {
+        $message = $this->findScheduledMessageForCurrentMember($id);
+        if ($message === null) {
+            return;
+        }
+
+        $message->delete();
+
+        if ($id === $this->lastScheduledMessageId) {
+            $this->lastScheduledAt = null;
+            $this->lastScheduledMessageId = null;
+        }
+
+        unset($this->lastScheduledMessage, $this->scheduledMessages);
+    }
+
+    public function sendScheduledNow(int $id): void
+    {
+        $message = $this->findScheduledMessageForCurrentMember($id);
+        if ($message === null) {
+            return;
+        }
+
+        $message->update([
+            'scheduled_for' => null,
+            'created_at' => now(),
+        ]);
+
+        if ($id === $this->lastScheduledMessageId) {
+            $this->lastScheduledAt = null;
+            $this->lastScheduledMessageId = null;
+        }
+
+        unset($this->lastScheduledMessage, $this->scheduledMessages);
+        $this->dispatch('bonfire-own-message-sent');
+    }
+
+    private function findScheduledMessageForCurrentMember(int $id): ?Message
+    {
+        $member = $this->member();
+        if ($member === null) {
+            return null;
+        }
+
+        return Message::query()
+            ->where('id', $id)
+            ->where('member_id', $member->id)
+            ->whereNotNull('scheduled_for')
+            ->where('scheduled_for', '>', now())
+            ->first();
     }
 
     public function scheduledMessagesCount(): int

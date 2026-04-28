@@ -47,6 +47,12 @@ return new class extends Component
         unset($this->visibleRooms);
     }
 
+    #[On('bonfire:read-state-changed')]
+    public function onReadStateChanged(): void
+    {
+        unset($this->visibleRooms);
+    }
+
     #[On('bonfire:member-updated')]
     public function onMemberUpdated(): void
     {

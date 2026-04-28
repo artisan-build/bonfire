@@ -11,6 +11,7 @@
 
 <div class="flex-shrink-0 border-t border-zinc-200 px-2 py-2
             dark:border-zinc-800"
+     wire:poll.60s="$refresh"
      x-data="{
          wsKey: 'bonfire.dnd.{{ $wsId }}',
          dndUntil: parseInt(localStorage.getItem('bonfire.dnd.{{ $wsId }}.until') ?? '0', 10),
@@ -75,60 +76,42 @@
                 class="group flex w-full items-center gap-2 rounded px-2 py-1.5 text-left
                        hover:bg-zinc-200/60
                        dark:hover:bg-zinc-800">
+            @php
+                $statusText = $showStatus && $member?->status_text ? $member->status_text : null;
+                $statusEmoji = $showStatus && $member?->status_emoji ? $member->status_emoji : null;
+            @endphp
             <span class="relative flex-shrink-0">
-                <img src="{{ $avatar }}" alt="" class="size-7 rounded bg-zinc-200 dark:bg-zinc-700">
-                <span x-show="dndActive"
-                      class="absolute -right-0.5 -bottom-0.5 flex size-3.5 items-center justify-center rounded-full border-2 border-zinc-50 bg-zinc-700 text-[8px] text-white
+                <img src="{{ $avatar }}" alt="" class="size-8 rounded-md bg-zinc-200 dark:bg-zinc-700">
+                <span class="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border-2 border-zinc-50 transition-colors
                              dark:border-zinc-900"
-                      title="Notifications paused"
-                      style="display: none;">
-                    <flux:icon name="moon" class="size-2" />
-                </span>
-                @if ($isAway)
-                    <span x-show="! dndActive"
-                          class="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border-2 border-zinc-50 bg-amber-400
-                                 dark:border-zinc-900"></span>
-                @else
-                    <span x-show="! dndActive"
-                          class="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border-2 border-zinc-50 bg-emerald-500
-                                 dark:border-zinc-900"></span>
-                @endif
+                      :class="dndActive
+                          ? 'bg-sky-500'
+                          : ('{{ $isAway ? 'bg-amber-400' : 'bg-emerald-500' }}')"></span>
             </span>
             <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-1 truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                <div class="flex items-center gap-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                     <span class="truncate">{{ $display }}</span>
-                    @if ($showStatus && $member?->status_emoji)
-                        <span class="shrink-0">{{ $member->status_emoji }}</span>
+                    @if ($statusEmoji)
+                        <span class="shrink-0">{{ $statusEmoji }}</span>
                     @endif
                 </div>
-                <div class="truncate text-xs
-                            {{ $isAway ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400' }}">
-                    @if ($showStatus && $member?->status_text)
-                        {{ $member->status_text }}
-                    @else
-                        {{ $isAway ? 'Away' : 'Active' }}
-                    @endif
-                </div>
-                @if ($showStatus && $member?->status_expires_at instanceof \Carbon\CarbonInterface)
-                    <div class="truncate text-[10px] text-zinc-500" title="{{ $member->status_expires_at->toRfc7231String() }}">
-                        @php($exp = $member->status_expires_at)
-                        @if ($exp->isToday())
-                            until {{ $exp->format('g:i A') }}
-                        @elseif ($exp->isTomorrow())
-                            until tomorrow {{ $exp->format('g:i A') }}
-                        @else
-                            until {{ $exp->format('M j, g:i A') }}
-                        @endif
-                    </div>
-                @endif
-                <div x-show="dndActive"
-                     class="truncate text-[10px] text-sky-600 dark:text-sky-400"
+                <div class="truncate text-xs"
+                     x-show="dndActive"
                      style="display: none;">
-                    <flux:icon name="moon" class="mr-0.5 inline size-3" />
-                    <span x-text="dndLabel"></span>
+                    <span class="text-sky-600 dark:text-sky-400" x-text="dndLabel"></span>
+                </div>
+                <div class="truncate text-xs"
+                     x-show="! dndActive">
+                    @if ($statusText)
+                        <span class="text-zinc-700 dark:text-zinc-300">{{ $statusText }}</span>
+                    @else
+                        <span class="{{ $isAway ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400' }}">
+                            {{ $isAway ? 'Away' : 'Active' }}
+                        </span>
+                    @endif
                 </div>
             </div>
-            <flux:icon name="chevron-up" class="size-3.5 text-zinc-400" />
+            <flux:icon name="chevron-up" class="size-3.5 flex-shrink-0 text-zinc-400" />
         </button>
 
         <flux:menu>
