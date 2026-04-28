@@ -557,6 +557,9 @@
                             this.api = null;
                             this.speakerId = null;
                         },
+                        destroy() {
+                            this.stopCall();
+                        },
                     }"
                     x-on:modal-show.window="if ($event.detail?.name === 'voice-call-{{ $room->id }}' && ! joined) { joined = true; $nextTick(() => startCall()); }"
                     x-on:close="joined = false; stopCall()">

@@ -1,6 +1,6 @@
 <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto"
      data-search="{{ $this->search }}"
-     wire:poll.30s="onMessagePosted"
+     wire:poll.60s="onMessagePosted"
      x-data="{
          pinned: true,
          typing: {},

@@ -11,7 +11,7 @@
 
 <div class="flex-shrink-0 border-t border-zinc-200 px-2 py-2
             dark:border-zinc-800"
-     wire:poll.60s="$refresh"
+     wire:poll.300s="$refresh"
      x-data="{
          wsKey: 'bonfire.dnd.{{ $wsId }}',
          dndUntil: parseInt(localStorage.getItem('bonfire.dnd.{{ $wsId }}.until') ?? '0', 10),

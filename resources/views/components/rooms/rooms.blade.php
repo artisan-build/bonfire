@@ -13,7 +13,7 @@
     $unsectionedRooms = $roomsBySection->get(0, collect());
 @endphp
 
-<div wire:poll.20s="$refresh"
+<div wire:poll.120s="$refresh"
      x-data="{
          sections: JSON.parse(localStorage.getItem('bonfire.sidebar') ?? '{}'),
          toggle(key) {
