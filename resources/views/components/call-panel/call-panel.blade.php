@@ -168,8 +168,8 @@
 
             <div class="relative">
                 <button type="button"
-                        @click="sharing ? stopScreenShare() : (showShareOptions = ! showShareOptions)"
-                        :title="sharing ? 'Stop sharing' : 'Share screen'"
+                        @click="showShareOptions = ! showShareOptions"
+                        :title="sharing ? 'Share settings' : 'Share screen'"
                         :class="sharing
                             ? 'bg-emerald-500 text-white ring-4 ring-emerald-300 shadow-lg shadow-emerald-500/50 hover:bg-emerald-600'
                             : 'bg-zinc-700 text-white ring-1 ring-zinc-500/40 hover:bg-zinc-600'"
@@ -182,18 +182,23 @@
                         <span class="relative inline-flex size-2.5 rounded-full bg-emerald-300"></span>
                     </span>
                 </button>
-                <div x-show="showShareOptions && ! sharing"
+                <div x-show="showShareOptions"
                      @click.outside="showShareOptions = false"
                      x-transition.opacity.duration.100ms
                      class="absolute bottom-full left-1/2 mb-2 w-72 -translate-x-1/2 rounded-lg border border-zinc-700 bg-zinc-900 p-3 text-xs text-zinc-100 shadow-xl"
                      style="display: none;">
-                    <div class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-                        Share options
+                    <div class="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider">
+                        <span x-show="! sharing" class="text-zinc-400">Share options</span>
+                        <span x-show="sharing" class="text-emerald-300">Live screen share</span>
                     </div>
                     <div class="space-y-3">
                         <div>
-                            <label class="mb-1 block text-[10px] font-medium text-zinc-400">Quality</label>
+                            <label class="mb-1 block text-[10px] font-medium text-zinc-400">
+                                Quality
+                                <span x-show="sharing" class="ml-1 text-emerald-400">· live</span>
+                            </label>
                             <select x-model="shareQuality"
+                                    @change="if (sharing) applyShareConstraints()"
                                     class="w-full rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs">
                                 <option value="720">720p (HD)</option>
                                 <option value="1080">1080p (Full HD)</option>
@@ -202,21 +207,32 @@
                             </select>
                         </div>
                         <div>
-                            <label class="mb-1 block text-[10px] font-medium text-zinc-400">Frame rate</label>
+                            <label class="mb-1 block text-[10px] font-medium text-zinc-400">
+                                Frame rate
+                                <span x-show="sharing" class="ml-1 text-emerald-400">· live</span>
+                            </label>
                             <select x-model="shareFps"
+                                    @change="if (sharing) applyShareConstraints()"
                                     class="w-full rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs">
                                 <option value="15">15 fps (low bandwidth)</option>
                                 <option value="30">30 fps (standard)</option>
                                 <option value="60">60 fps (smooth, needs bandwidth)</option>
                             </select>
                         </div>
-                        <p class="text-[10px] text-zinc-500 leading-relaxed">
+                        <p x-show="! sharing" class="text-[10px] text-zinc-500 leading-relaxed">
                             Your browser will then let you pick which screen, window, or tab to share.
                         </p>
-                        <button type="button"
+                        <button x-show="! sharing"
+                                type="button"
                                 @click="startScreenShare()"
                                 class="w-full rounded-md bg-emerald-600 py-2 text-xs font-semibold text-white hover:bg-emerald-700">
                             Start sharing
+                        </button>
+                        <button x-show="sharing"
+                                type="button"
+                                @click="stopScreenShare(); showShareOptions = false"
+                                class="w-full rounded-md bg-rose-600 py-2 text-xs font-semibold text-white hover:bg-rose-700">
+                            Stop sharing
                         </button>
                     </div>
                 </div>
@@ -688,6 +704,47 @@
                     const y = (event.clientY - rect.top) / rect.height;
                     try { this.dc.send(JSON.stringify({ type: 'pointer', active: true, x, y })); }
                     catch (e) {}
+                },
+                /**
+                 * Adjust resolution / framerate / bitrate of the in-flight screen
+                 * share without stopping and re-prompting for getDisplayMedia.
+                 */
+                async applyShareConstraints() {
+                    if (! this.sharing || ! this.pc) return;
+
+                    const heightMap = { 720: 720, 1080: 1080, 1440: 1440, 2160: 2160 };
+                    const targetHeight = heightMap[this.shareQuality] ?? 1080;
+                    const targetWidth = Math.round(targetHeight * 16 / 9);
+                    const fps = Number(this.shareFps);
+
+                    const screenTrack = this.screenStream?.getVideoTracks()[0];
+                    if (screenTrack) {
+                        try {
+                            await screenTrack.applyConstraints({
+                                width: { ideal: targetWidth },
+                                height: { ideal: targetHeight },
+                                frameRate: { ideal: fps, max: fps },
+                            });
+                        } catch (e) {
+                            console.warn('applyShareConstraints (track)', e);
+                        }
+                    }
+
+                    const bitrateMap = { 720: 1_500_000, 1080: 2_500_000, 1440: 4_000_000, 2160: 8_000_000 };
+                    const bitrate = bitrateMap[this.shareQuality] ?? 2_500_000;
+                    const sender = this.pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                    if (sender) {
+                        try {
+                            const params = sender.getParameters();
+                            params.encodings = params.encodings && params.encodings.length
+                                ? params.encodings
+                                : [{}];
+                            params.encodings.forEach(e => { e.maxBitrate = bitrate; });
+                            await sender.setParameters(params);
+                        } catch (e) {
+                            console.warn('applyShareConstraints (bitrate)', e);
+                        }
+                    }
                 },
                 async startScreenShare() {
                     if (! this.pc || this.sharing) return;
