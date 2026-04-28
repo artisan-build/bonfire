@@ -1,6 +1,11 @@
 @php
     $currentRoom = request()->route('room');
-    $currentRoomId = $currentRoom instanceof \ArtisanBuild\Bonfire\Models\Room ? $currentRoom->id : null;
+    $currentRoomId = $currentRoom instanceof \ArtisanBuild\Bonfire\Models\Room
+        ? $currentRoom->id
+        : $this->currentRoomId;
+    if ($currentRoom instanceof \ArtisanBuild\Bonfire\Models\Room && $this->currentRoomId !== $currentRoom->id) {
+        $this->currentRoomId = $currentRoom->id;
+    }
     $all = collect($this->visibleRooms)->reject(fn ($room) => str_starts_with($room->slug, 'dm-'));
     $starred = $all->where('is_starred', true);
     $unstarred = $all->where('is_starred', false);

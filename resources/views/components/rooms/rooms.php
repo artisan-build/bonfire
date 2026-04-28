@@ -24,6 +24,8 @@ return new class extends Component
 
     public string $sort = 'alpha';
 
+    public ?int $currentRoomId = null;
+
     public string $newChannelName = '';
 
     public string $newChannelDescription = '';
@@ -48,8 +50,11 @@ return new class extends Component
     }
 
     #[On('bonfire:read-state-changed')]
-    public function onReadStateChanged(): void
+    public function onReadStateChanged(?int $roomId = null): void
     {
+        if ($roomId !== null) {
+            $this->currentRoomId = $roomId;
+        }
         unset($this->visibleRooms);
     }
 

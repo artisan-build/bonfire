@@ -37,7 +37,7 @@ return new class extends Component
 
         $tracker->markRead($room, $this->currentMember());
 
-        $this->dispatch('bonfire:read-state-changed');
+        $this->dispatch('bonfire:read-state-changed', roomId: $room->id);
     }
 
     #[Computed]
