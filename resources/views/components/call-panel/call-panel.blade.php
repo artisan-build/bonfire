@@ -331,10 +331,19 @@
                 _attachTimer: null,
                 _echoChannel: null,
                 _attachAttempts: 0,
+                _deviceChangeHandler: null,
                 init() {
                     this.me.name = this.$el.dataset.myName || 'You';
                     this.me.avatar = this.$el.dataset.myAvatar || null;
                     this.subscribe();
+
+                    // Refresh device list (and labels) when AirPods connect /
+                    // disconnect mid-call, otherwise the dropdown lies about
+                    // what's actually routing audio.
+                    if (navigator.mediaDevices && typeof navigator.mediaDevices.addEventListener === 'function') {
+                        this._deviceChangeHandler = () => { this.loadDevices(); };
+                        navigator.mediaDevices.addEventListener('devicechange', this._deviceChangeHandler);
+                    }
                 },
                 destroy() {
                     if (this._attachTimer) clearTimeout(this._attachTimer);
@@ -348,6 +357,9 @@
                     if (this.ringtoneInterval) clearInterval(this.ringtoneInterval);
                     if (this.ringbackInterval) clearInterval(this.ringbackInterval);
                     if (this.durationTimer) clearInterval(this.durationTimer);
+                    if (this._deviceChangeHandler && navigator.mediaDevices) {
+                        navigator.mediaDevices.removeEventListener('devicechange', this._deviceChangeHandler);
+                    }
                 },
                 subscribe() {
                     const tryAttach = () => {
@@ -616,9 +628,29 @@
                 async loadDevices() {
                     try {
                         const list = await navigator.mediaDevices.enumerateDevices();
-                        this.devices.mics = list.filter(d => d.kind === 'audioinput');
+                        const sortDefaultFirst = (arr) => {
+                            const def = arr.filter(d => d.deviceId === 'default' || d.deviceId === '');
+                            const rest = arr.filter(d => d.deviceId !== 'default' && d.deviceId !== '');
+                            return [...def, ...rest];
+                        };
+                        const decorate = (d) => {
+                            // Make it obvious that the "default" entry follows whatever the
+                            // OS routes audio to right now (e.g. AirPods if they're connected).
+                            if (d.deviceId === 'default') {
+                                const trimmed = (d.label || '').replace(/^Default\s*[-—·]?\s*/i, '');
+                                return { ...d, label: trimmed ? 'System default · ' + trimmed : 'System default' };
+                            }
+                            return d;
+                        };
+                        this.devices.mics = sortDefaultFirst(list.filter(d => d.kind === 'audioinput')).map(decorate);
                         this.devices.cams = list.filter(d => d.kind === 'videoinput');
-                        this.devices.speakers = list.filter(d => d.kind === 'audiooutput');
+                        this.devices.speakers = sortDefaultFirst(list.filter(d => d.kind === 'audiooutput')).map(decorate);
+
+                        // If nothing is selected yet, mirror the system default so the
+                        // dropdown's selected label matches what's actually playing.
+                        if (! this.selectedMic && this.devices.mics[0]) this.selectedMic = this.devices.mics[0].deviceId;
+                        if (! this.selectedCam && this.devices.cams[0]) this.selectedCam = this.devices.cams[0].deviceId;
+                        if (! this.selectedSpeaker && this.devices.speakers[0]) this.selectedSpeaker = this.devices.speakers[0].deviceId;
                     } catch (e) { /* permission not granted yet */ }
                 },
                 attachDataChannel(channel) {
