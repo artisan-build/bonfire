@@ -83,6 +83,7 @@
             @php
                 $statusText = $showStatus && $member?->status_text ? $member->status_text : null;
                 $statusEmoji = $showStatus && $member?->status_emoji ? $member->status_emoji : null;
+                $statusGameImage = $showStatus && $member?->status_game_image ? $member->status_game_image : null;
             @endphp
             <span class="relative flex-shrink-0">
                 <img src="{{ $avatar }}" alt="" class="size-8 rounded-md bg-zinc-200 dark:bg-zinc-700">
@@ -239,6 +240,33 @@
                         </template>
                     </div>
                 </div>
+
+                @feature('game_presence')
+                    <div>
+                        <flux:label>Playing a game?</flux:label>
+                        <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                            @foreach ($this->availableGames() as $g)
+                                <button type="button"
+                                        wire:click="pickGame('{{ $g['key'] }}')"
+                                        @class([
+                                            'group flex items-center gap-2 rounded-lg border p-2 text-left text-xs transition',
+                                            'border-violet-400 bg-violet-50 ring-2 ring-violet-200 dark:border-violet-500 dark:bg-violet-950/40 dark:ring-violet-900/60' => $statusGame === $g['key'],
+                                            'border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900' => $statusGame !== $g['key'],
+                                        ])>
+                                    <img src="{{ $g['image'] }}" alt="{{ $g['name'] }}" class="size-8 flex-shrink-0 rounded bg-zinc-100 object-cover dark:bg-zinc-800">
+                                    <span class="truncate font-semibold text-zinc-900 dark:text-zinc-100">{{ $g['name'] }}</span>
+                                </button>
+                            @endforeach
+                        </div>
+                        @if ($statusGame !== '')
+                            <button type="button"
+                                    wire:click="pickGame('')"
+                                    class="mt-2 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+                                Clear game
+                            </button>
+                        @endif
+                    </div>
+                @endfeature
 
                 <flux:field>
                     <flux:label>Clear after</flux:label>

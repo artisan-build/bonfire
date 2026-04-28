@@ -18,6 +18,24 @@ return new class extends Component
 
     public string $statusText = '';
 
+    public string $statusGame = '';
+
+    public string $statusGameImage = '';
+
+    /**
+     * @var list<array{key: string, name: string, image: string}>
+     */
+    public const array GAMES = [
+        ['key' => 'valorant', 'name' => 'Valorant', 'image' => 'https://cdn2.steamgriddb.com/icon_thumb/9b1c46f99c08b9f76dfcd49ec85a4b97.png'],
+        ['key' => 'cs2', 'name' => 'CS2', 'image' => 'https://cdn2.steamgriddb.com/icon_thumb/2a14f31d29d1e0a1d4ef13a0775ecaf3.png'],
+        ['key' => 'apex', 'name' => 'Apex Legends', 'image' => 'https://cdn2.steamgriddb.com/icon_thumb/c0560792e4a3c79e62f76cbf9fb277dd.png'],
+        ['key' => 'lol', 'name' => 'League of Legends', 'image' => 'https://cdn2.steamgriddb.com/icon_thumb/c81e728d9d4c2f636f067f89cc14862c.png'],
+        ['key' => 'fortnite', 'name' => 'Fortnite', 'image' => 'https://cdn2.steamgriddb.com/icon_thumb/eccbc87e4b5ce2fe28308fd9f2a7baf3.png'],
+        ['key' => 'rocketleague', 'name' => 'Rocket League', 'image' => 'https://cdn2.steamgriddb.com/icon_thumb/a87ff679a2f3e71d9181a67b7542122c.png'],
+        ['key' => 'minecraft', 'name' => 'Minecraft', 'image' => 'https://cdn2.steamgriddb.com/icon_thumb/e4da3b7fbbce2345d7772b0674a318d5.png'],
+        ['key' => 'overwatch', 'name' => 'Overwatch 2', 'image' => 'https://cdn2.steamgriddb.com/icon_thumb/1679091c5a880faf6fb5e6087eb1b2dc.png'],
+    ];
+
     public string $statusClearIn = '';
 
     public string $profileDisplayName = '';
@@ -72,9 +90,13 @@ return new class extends Component
         if ($member !== null) {
             $this->statusEmoji = (string) ($member->status_emoji ?? '');
             $this->statusText = (string) ($member->status_text ?? '');
+            $this->statusGame = (string) ($member->status_game ?? '');
+            $this->statusGameImage = (string) ($member->status_game_image ?? '');
         } else {
             $this->statusEmoji = '';
             $this->statusText = '';
+            $this->statusGame = '';
+            $this->statusGameImage = '';
         }
 
         $this->statusClearIn = '';
@@ -175,13 +197,17 @@ return new class extends Component
             };
         }
 
-        if ($emoji === '' && $text === '') {
+        if ($emoji === '' && $text === '' && $this->statusGame === '') {
             $member->status_emoji = null;
             $member->status_text = null;
+            $member->status_game = null;
+            $member->status_game_image = null;
             $member->status_expires_at = null;
         } else {
             $member->status_emoji = $emoji !== '' ? $emoji : null;
             $member->status_text = $text !== '' ? $text : null;
+            $member->status_game = $this->statusGame !== '' ? $this->statusGame : null;
+            $member->status_game_image = $this->statusGameImage !== '' ? $this->statusGameImage : null;
             $member->status_expires_at = $expiresAt;
         }
 
@@ -190,6 +216,39 @@ return new class extends Component
         unset($this->member);
 
         $this->dispatch('modal-close', name: 'set-status');
+    }
+
+    /**
+     * @return list<array{key: string, name: string, image: string}>
+     */
+    public function availableGames(): array
+    {
+        return self::GAMES;
+    }
+
+    public function pickGame(string $key): void
+    {
+        if ($key === '') {
+            $this->statusGame = '';
+            $this->statusGameImage = '';
+
+            return;
+        }
+
+        foreach (self::GAMES as $g) {
+            if ($g['key'] === $key) {
+                $this->statusGame = $g['name'];
+                $this->statusGameImage = $g['image'];
+                if ($this->statusEmoji === '') {
+                    $this->statusEmoji = '🎮';
+                }
+                if ($this->statusText === '') {
+                    $this->statusText = 'Playing '.$g['name'];
+                }
+
+                return;
+            }
+        }
     }
 
     public function clearStatus(): void
@@ -202,6 +261,8 @@ return new class extends Component
 
         $member->status_emoji = null;
         $member->status_text = null;
+        $member->status_game = null;
+        $member->status_game_image = null;
         $member->status_expires_at = null;
         $member->save();
 

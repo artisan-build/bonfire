@@ -512,6 +512,11 @@
                         speakerId: null,
                         muted: true,
                         api: null,
+                        pttEnabled: localStorage.getItem('bonfire.ptt.enabled') === '1',
+                        pttKey: localStorage.getItem('bonfire.ptt.key') || '`',
+                        pttHeld: false,
+                        _pttDownHandler: null,
+                        _pttUpHandler: null,
                         loadJitsi() {
                             if (window.JitsiMeetExternalAPI) return Promise.resolve();
                             return new Promise((resolve, reject) => {
@@ -555,11 +560,57 @@
                             this.api.addEventListener('readyToClose', () => {
                                 $dispatch('modal-close', { name: 'voice-call-{{ $room->id }}' });
                             });
+                            if (this.pttEnabled) this.setupPTT();
                         },
                         stopCall() {
+                            this.teardownPTT();
                             if (this.api) { try { this.api.dispose(); } catch (e) {} }
                             this.api = null;
                             this.speakerId = null;
+                            this.pttHeld = false;
+                        },
+                        togglePTT() {
+                            this.pttEnabled = ! this.pttEnabled;
+                            localStorage.setItem('bonfire.ptt.enabled', this.pttEnabled ? '1' : '0');
+                            if (this.api) {
+                                this.teardownPTT();
+                                if (this.pttEnabled) {
+                                    this.setupPTT();
+                                    if (! this.muted) this.api.executeCommand('toggleAudio');
+                                } else if (this.muted) {
+                                    this.api.executeCommand('toggleAudio');
+                                }
+                            }
+                        },
+                        isInputFocused() {
+                            const ae = document.activeElement;
+                            return !!(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable));
+                        },
+                        setupPTT() {
+                            if (! this.api) return;
+                            // Make sure we start muted so PTT is the only path to broadcast.
+                            if (! this.muted) this.api.executeCommand('toggleAudio');
+                            this._pttDownHandler = (e) => {
+                                if (e.key !== this.pttKey || this.pttHeld) return;
+                                if (this.isInputFocused()) return;
+                                e.preventDefault();
+                                this.pttHeld = true;
+                                if (this.muted) this.api.executeCommand('toggleAudio');
+                            };
+                            this._pttUpHandler = (e) => {
+                                if (e.key !== this.pttKey || ! this.pttHeld) return;
+                                e.preventDefault();
+                                this.pttHeld = false;
+                                if (! this.muted) this.api.executeCommand('toggleAudio');
+                            };
+                            document.addEventListener('keydown', this._pttDownHandler);
+                            document.addEventListener('keyup', this._pttUpHandler);
+                        },
+                        teardownPTT() {
+                            if (this._pttDownHandler) document.removeEventListener('keydown', this._pttDownHandler);
+                            if (this._pttUpHandler) document.removeEventListener('keyup', this._pttUpHandler);
+                            this._pttDownHandler = null;
+                            this._pttUpHandler = null;
                         },
                         destroy() {
                             this.stopCall();
@@ -568,7 +619,7 @@
                     x-on:modal-show.window="if ($event.detail?.name === 'voice-call-{{ $room->id }}' && ! joined) { joined = true; $nextTick(() => startCall()); }"
                     x-on:close="joined = false; stopCall()">
             <div class="flex flex-col gap-4">
-                <div class="flex items-start justify-between">
+                <div class="flex items-start justify-between gap-3">
                     <div>
                         <flux:heading size="lg" class="flex items-center gap-2">
                             <flux:icon name="microphone" variant="solid" class="size-5 text-emerald-500" />
@@ -582,6 +633,24 @@
                             </span>
                         </flux:text>
                     </div>
+
+                    @feature('push_to_talk')
+                        <div class="flex items-center gap-2">
+                            <button type="button"
+                                    @click="togglePTT()"
+                                    :class="pttEnabled
+                                        ? (pttHeld
+                                            ? 'border-emerald-400 bg-emerald-50 text-emerald-700 dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                            : 'border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-300')
+                                        : 'border-zinc-300 bg-white text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'"
+                                    class="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold shadow-sm transition">
+                                <flux:icon name="bolt" :variant="@js('solid')" class="size-3.5" />
+                                <span x-show="! pttEnabled">PTT off</span>
+                                <span x-show="pttEnabled && ! pttHeld">PTT · hold <kbd class="ml-0.5 rounded bg-white/40 px-1 font-mono text-[10px] dark:bg-black/30" x-text="pttKey === '`' ? '`' : pttKey"></kbd></span>
+                                <span x-show="pttHeld">Live · talking</span>
+                            </button>
+                        </div>
+                    @endfeature
                 </div>
 
                 <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
