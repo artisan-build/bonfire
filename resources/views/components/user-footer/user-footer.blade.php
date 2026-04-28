@@ -64,11 +64,15 @@
              localStorage.setItem(this.wsKey + '.quiet.to', this.quietTo);
              if (this.quietEnabled) localStorage.setItem(this.wsKey + '.quiet.enabled', '1');
          },
+         _tick: null,
          init() {
-             setInterval(() => {
+             this._tick = setInterval(() => {
                  this.now = Date.now();
                  if (this.dndUntil && this.dndUntil <= this.now) this.pause(0);
              }, 30_000);
+         },
+         destroy() {
+             if (this._tick) clearInterval(this._tick);
          },
      }">
     <flux:dropdown position="top" align="start">

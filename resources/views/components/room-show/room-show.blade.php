@@ -151,13 +151,21 @@
                                  $wire.call('leaveVoiceRoom');
                                  $dispatch('modal-close', { name: 'voice-call-{{ $room->id }}' });
                              },
+                             _beforeUnload: null,
                              init() {
                                  if (this.joined) this.startHeartbeat();
-                                 window.addEventListener('beforeunload', () => {
+                                 this._beforeUnload = () => {
                                      if (this.joined) {
                                          navigator.sendBeacon('/voice-rooms/leave/{{ $room->id }}');
                                      }
-                                 });
+                                 };
+                                 window.addEventListener('beforeunload', this._beforeUnload);
+                             },
+                             destroy() {
+                                 this.stopHeartbeat();
+                                 if (this._beforeUnload) {
+                                     window.removeEventListener('beforeunload', this._beforeUnload);
+                                 }
                              },
                          }">
                         @if ($voiceCount > 0)

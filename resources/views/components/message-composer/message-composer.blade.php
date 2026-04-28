@@ -604,14 +604,18 @@
                     dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100"
              x-data="{
                  now: Date.now(),
+                 _tick: null,
                  init() {
-                     setInterval(() => {
+                     this._tick = setInterval(() => {
                          this.now = Date.now();
                          if (this.target && this.target <= this.now) {
                              $wire.call('dismissScheduled');
                              window.dispatchEvent(new CustomEvent('bonfire-refresh-messages'));
                          }
                      }, 5000);
+                 },
+                 destroy() {
+                     if (this._tick) clearInterval(this._tick);
                  },
                  get target() {
                      const v = $wire.lastScheduledAt;

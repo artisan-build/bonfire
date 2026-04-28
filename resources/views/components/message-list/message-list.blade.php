@@ -122,6 +122,12 @@
          scrollToBottom(smooth = true) {
              $el.scrollTo({ top: $el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
          },
+         _observer: null,
+         _scrollHandler: null,
+         _ownSentHandler: null,
+         _refreshHandler: null,
+         _hashHandler: null,
+         _echoChannel: null,
          init() {
              $el.scrollTop = $el.scrollHeight;
              this.$nextTick(() => this.applyHighlight());
@@ -129,7 +135,8 @@
              // Track whether the user is parked at the bottom so auto-scroll only kicks
              // in when it won't yank them away from history they're reading.
              this.updateNearBottom();
-             $el.addEventListener('scroll', () => this.updateNearBottom(), { passive: true });
+             this._scrollHandler = () => this.updateNearBottom();
+             $el.addEventListener('scroll', this._scrollHandler, { passive: true });
 
              const isMessageLi = (n) => n && n.nodeType === 1
                  && n.tagName === 'LI'
@@ -144,7 +151,7 @@
                  return false;
              };
 
-             const obs = new MutationObserver((mutations) => {
+             this._observer = new MutationObserver((mutations) => {
                  this.applyHighlight();
 
                  const hasNewMessage = mutations.some(m =>
@@ -158,26 +165,27 @@
                      this.$nextTick(() => this.scrollToBottom());
                  }
              });
-             obs.observe($el, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['data-search'] });
+             this._observer.observe($el, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['data-search'] });
 
              // After we send our own message, force-scroll regardless of current position.
-             window.addEventListener('bonfire-own-message-sent', () => {
-                 this.forceScrollNext = true;
-             });
+             this._ownSentHandler = () => { this.forceScrollNext = true; };
+             window.addEventListener('bonfire-own-message-sent', this._ownSentHandler);
 
              // When a scheduled message's time arrives, fetch latest and scroll to it.
-             window.addEventListener('bonfire-refresh-messages', () => {
+             this._refreshHandler = () => {
                  this.forceScrollNext = true;
                  this.$wire.call('onMessagePosted');
-             });
+             };
+             window.addEventListener('bonfire-refresh-messages', this._refreshHandler);
 
              // If the URL has a #m-123 hash when we arrive, jump to that message.
              this.$nextTick(() => this.focusHashMessage());
-             window.addEventListener('hashchange', () => this.focusHashMessage());
+             this._hashHandler = () => this.focusHashMessage();
+             window.addEventListener('hashchange', this._hashHandler);
 
              if (typeof window.Echo === 'undefined') return;
-             const channel = window.Echo.join('bonfire.room.{{ $room->id }}');
-             channel
+             this._echoChannel = window.Echo.join('bonfire.room.{{ $room->id }}');
+             this._echoChannel
                  .listenForWhisper('user.typing', (e) => {
                      if (!e || !e.member_id) return;
                      this.typing[e.member_id] = {
@@ -197,6 +205,17 @@
                  .listen('.message.deleted', () => {
                      this.$wire.call('onMessageDeleted');
                  });
+         },
+         destroy() {
+             if (this._observer) this._observer.disconnect();
+             if (this._scrollHandler) $el.removeEventListener('scroll', this._scrollHandler);
+             if (this._ownSentHandler) window.removeEventListener('bonfire-own-message-sent', this._ownSentHandler);
+             if (this._refreshHandler) window.removeEventListener('bonfire-refresh-messages', this._refreshHandler);
+             if (this._hashHandler) window.removeEventListener('hashchange', this._hashHandler);
+             if (this._echoChannel && typeof window.Echo !== 'undefined') {
+                 try { window.Echo.leave('bonfire.room.{{ $room->id }}'); } catch (e) {}
+             }
+             if (this.copyToastTimer) clearTimeout(this.copyToastTimer);
          },
          get typingLabel() {
              const names = Object.values(this.typing).map(t => t.name).filter(Boolean);
