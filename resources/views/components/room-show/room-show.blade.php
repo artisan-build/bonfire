@@ -101,7 +101,7 @@
             </div>
 
             @unless ($isDm)
-                @if ($this->isVoiceRoom())
+                @if ($this->isVoiceRoom() && \App\Support\Features::enabled('voice_rooms'))
                     @php
                         $voiceMembers = $this->voiceParticipants;
                         $voiceCount = $voiceMembers->count();
@@ -505,7 +505,7 @@
         </div>
     </flux:modal>
 
-    @if ($this->isVoiceRoom())
+    @if ($this->isVoiceRoom() && \App\Support\Features::enabled('voice_rooms'))
         @php
             $voiceCallRoomName = 'bonfire-voice-'.\Illuminate\Support\Str::slug(config('app.name', 'app')).'-room-'.$room->id;
         @endphp
