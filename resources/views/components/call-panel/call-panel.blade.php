@@ -328,22 +328,41 @@
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'stun:stun1.l.google.com:19302' },
                 ],
+                _attachTimer: null,
+                _echoChannel: null,
+                _attachAttempts: 0,
                 init() {
                     this.me.name = this.$el.dataset.myName || 'You';
                     this.me.avatar = this.$el.dataset.myAvatar || null;
                     this.subscribe();
                 },
+                destroy() {
+                    if (this._attachTimer) clearTimeout(this._attachTimer);
+                    this._attachTimer = null;
+                    if (this._echoChannel && typeof window.Echo !== 'undefined') {
+                        const userId = {{ auth()->id() ?? 'null' }};
+                        if (userId) {
+                            try { window.Echo.leave('App.Models.User.' + userId); } catch (e) {}
+                        }
+                    }
+                    if (this.ringtoneInterval) clearInterval(this.ringtoneInterval);
+                    if (this.ringbackInterval) clearInterval(this.ringbackInterval);
+                    if (this.durationTimer) clearInterval(this.durationTimer);
+                },
                 subscribe() {
                     const tryAttach = () => {
                         if (typeof window.Echo === 'undefined') {
-                            return setTimeout(tryAttach, 250);
+                            this._attachAttempts++;
+                            if (this._attachAttempts > 40) return;
+                            this._attachTimer = setTimeout(tryAttach, 250);
+                            return;
                         }
                         const userId = {{ auth()->id() ?? 'null' }};
                         if (! userId) return;
-                        const channel = window.Echo.private('App.Models.User.' + userId);
-                        channel.listen('.call.initiated', (e) => this.onIncoming(e));
-                        channel.listen('.call.signal', (e) => this.onSignal(e));
-                        channel.listen('.call.ended', (e) => this.onRemoteEnded(e));
+                        this._echoChannel = window.Echo.private('App.Models.User.' + userId);
+                        this._echoChannel.listen('.call.initiated', (e) => this.onIncoming(e));
+                        this._echoChannel.listen('.call.signal', (e) => this.onSignal(e));
+                        this._echoChannel.listen('.call.ended', (e) => this.onRemoteEnded(e));
                     };
                     tryAttach();
                 },

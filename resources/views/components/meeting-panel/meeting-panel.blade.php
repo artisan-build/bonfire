@@ -467,31 +467,40 @@
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'stun:stun1.l.google.com:19302' },
                 ],
+                _docClickHandler: null,
+                _visibilityHandler: null,
                 init() {
                     this.me.userId = Number(this.$el.dataset.myUserId);
                     this.me.name = this.$el.dataset.myName || 'You';
                     this.me.avatar = this.$el.dataset.myAvatar || null;
 
                     // Delegated listener for "Join meeting" buttons inside message bodies.
-                    document.addEventListener('click', (e) => {
+                    this._docClickHandler = (e) => {
                         const btn = e.target.closest?.('[data-bonfire-join-meeting]');
                         if (! btn) return;
                         e.preventDefault();
                         const roomId = Number(btn.dataset.roomId);
                         const roomName = btn.dataset.roomName || '';
                         if (roomId) this.joinMeeting({ roomId, roomName });
-                    });
+                    };
+                    document.addEventListener('click', this._docClickHandler);
 
                     // Pause the duration ticker when the tab is hidden — no point
                     // burning cycles updating invisible UI.
-                    document.addEventListener('visibilitychange', () => {
+                    this._visibilityHandler = () => {
                         if (! this.active) return;
                         if (document.hidden) {
                             if (this.durationTimer) { clearInterval(this.durationTimer); this.durationTimer = null; }
                         } else if (this.startedAt) {
                             this.startDurationTimer();
                         }
-                    });
+                    };
+                    document.addEventListener('visibilitychange', this._visibilityHandler);
+                },
+                destroy() {
+                    if (this._docClickHandler) document.removeEventListener('click', this._docClickHandler);
+                    if (this._visibilityHandler) document.removeEventListener('visibilitychange', this._visibilityHandler);
+                    if (this.durationTimer) clearInterval(this.durationTimer);
                 },
                 get participantCount() {
                     return 1 + Object.keys(this.peers).length;
