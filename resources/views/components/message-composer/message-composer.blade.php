@@ -1176,16 +1176,18 @@
                 <button type="button"
                         title="Record voice note"
                         @click="toggleRecordKind('audio')"
-                        :class="recordKind === 'audio' ? 'text-rose-600 dark:text-rose-400' : ''"
-                        class="rounded p-1.5 hover:bg-zinc-100 hover:text-zinc-900
+                        :class="recordKind === 'audio' ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-500 dark:text-zinc-400'"
+                        class="flex size-8 items-center justify-center rounded-md transition
+                               hover:bg-zinc-100 hover:text-zinc-900
                                dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
                     <flux:icon name="microphone" class="size-4" />
                 </button>
                 <button type="button"
                         title="Record video clip"
                         @click="toggleRecordKind('video')"
-                        :class="recordKind === 'video' ? 'text-rose-600 dark:text-rose-400' : ''"
-                        class="rounded p-1.5 hover:bg-zinc-100 hover:text-zinc-900
+                        :class="recordKind === 'video' ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-500 dark:text-zinc-400'"
+                        class="flex size-8 items-center justify-center rounded-md transition
+                               hover:bg-zinc-100 hover:text-zinc-900
                                dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
                     <flux:icon name="video-camera" class="size-4" />
                 </button>
@@ -1195,15 +1197,17 @@
                 <button type="button"
                         title="Emoji"
                         @mousedown.prevent @click.stop="toggleEmoji()"
-                        class="rounded p-1.5 hover:bg-zinc-100 hover:text-zinc-900
-                               dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
+                        class="flex size-8 items-center justify-center rounded-md text-zinc-500 transition
+                               hover:bg-zinc-100 hover:text-zinc-900
+                               dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
                     <flux:icon name="face-smile" class="size-4" />
                 </button>
                 <button type="button"
                         title="Mention"
                         @mousedown.prevent @click="openMentions()"
-                        class="rounded p-1.5 hover:bg-zinc-100 hover:text-zinc-900
-                               dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
+                        class="flex size-8 items-center justify-center rounded-md text-zinc-500 transition
+                               hover:bg-zinc-100 hover:text-zinc-900
+                               dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
                     <flux:icon name="at-symbol" class="size-4" />
                 </button>
                 @feature('message_polls')
@@ -1211,8 +1215,9 @@
                             title="Create a poll"
                             @mousedown.prevent
                             @click="$dispatch('modal-show', { name: 'create-poll' })"
-                            class="rounded p-1.5 hover:bg-zinc-100 hover:text-zinc-900
-                                   dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
+                            class="flex size-8 items-center justify-center rounded-md text-zinc-500 transition
+                                   hover:bg-zinc-100 hover:text-zinc-900
+                                   dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
                         <flux:icon name="chart-bar" class="size-4" />
                     </button>
                 @endfeature
