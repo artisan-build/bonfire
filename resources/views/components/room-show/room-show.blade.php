@@ -255,17 +255,21 @@
                 <button type="button"
                         title="{{ $memberCount }} {{ \Illuminate\Support\Str::plural('member', $memberCount) }}"
                         @click="$dispatch('modal-show', { name: 'channel-details' })"
-                        class="flex items-center gap-1.5 rounded-md border border-zinc-200 px-2 py-1
+                        class="flex items-center justify-center gap-1.5 rounded-md border border-zinc-200 px-2 py-1
                                hover:bg-zinc-100
                                dark:border-zinc-700 dark:hover:bg-zinc-800">
-                    <span class="flex -space-x-1.5">
-                        @foreach ($memberPreview as $m)
-                            <img src="{{ $m->avatar_url ?? 'https://ui-avatars.com/api/?name='.urlencode($m->display_name) }}"
-                                 alt="{{ $m->display_name }}"
-                                 class="size-5 rounded bg-zinc-200 ring-2 ring-white
-                                        dark:bg-zinc-700 dark:ring-zinc-900">
-                        @endforeach
-                    </span>
+                    @if ($memberCount > 0)
+                        <span class="flex -space-x-1.5">
+                            @foreach ($memberPreview as $m)
+                                <img src="{{ $m->avatar_url ?? 'https://ui-avatars.com/api/?name='.urlencode($m->display_name) }}"
+                                     alt="{{ $m->display_name }}"
+                                     class="size-5 rounded bg-zinc-200 ring-2 ring-white
+                                            dark:bg-zinc-700 dark:ring-zinc-900">
+                            @endforeach
+                        </span>
+                    @else
+                        <flux:icon name="users" class="size-3.5 text-zinc-500" />
+                    @endif
                     <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300">{{ $memberCount }}</span>
                 </button>
             @endunless

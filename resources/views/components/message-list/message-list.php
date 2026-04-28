@@ -263,13 +263,14 @@ return new class extends Component
         return Room::query()
             ->where('tenant_id', Bonfire::tenantId())
             ->whereNull('deleted_at')
-            ->where('type', '!=', RoomType::Archived->value)
+            ->whereRaw('(type & ?) = 0', [RoomType::Archived->value])
             ->where(function ($q) use ($memberRoomIds): void {
-                $q->where('is_private', false)->orWhereIn('id', $memberRoomIds);
+                $q->whereRaw('(type & ?) = 0', [RoomType::Private->value])
+                    ->orWhereIn('id', $memberRoomIds);
             })
             ->where('slug', 'not like', 'dm-%')
             ->orderBy('name')
-            ->get(['id', 'name', 'slug', 'is_private', 'type'])
+            ->get(['id', 'name', 'slug', 'type'])
             ->values();
     }
 

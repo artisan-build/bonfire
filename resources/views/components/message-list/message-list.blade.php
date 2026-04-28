@@ -757,7 +757,7 @@
                                     class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm
                                            hover:bg-sky-50 hover:text-sky-700
                                            dark:hover:bg-sky-950/40 dark:hover:text-sky-300">
-                                @if ($r->is_private)
+                                @if ($r->isPrivate())
                                     <flux:icon name="lock-closed" class="size-3.5 text-zinc-500" />
                                 @else
                                     <span class="w-3.5 text-center text-zinc-500">#</span>
