@@ -323,10 +323,14 @@
                         Affects the screen/window you're sharing. Your webcam quality is set separately (gear button).
                     </p>
                     <div class="space-y-3">
-                        {{-- Quality + FPS are only editable before sharing starts. --}}
-                        <div x-show="! sharing">
-                            <label class="mb-1 block text-[10px] font-medium text-zinc-400">Screen resolution</label>
+                        {{-- Quality + FPS can be tuned live while sharing — no stop/restart. --}}
+                        <div>
+                            <label class="mb-1 block text-[10px] font-medium text-zinc-400">
+                                Screen resolution
+                                <span x-show="sharing" class="ml-1 text-emerald-400">· live</span>
+                            </label>
                             <select x-model="shareQuality"
+                                    @change="if (sharing) applyShareConstraints()"
                                     class="w-full rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs">
                                 <option value="720">720p (HD)</option>
                                 <option value="1080">1080p (Full HD)</option>
@@ -334,9 +338,13 @@
                                 <option value="2160">2160p (4K)</option>
                             </select>
                         </div>
-                        <div x-show="! sharing">
-                            <label class="mb-1 block text-[10px] font-medium text-zinc-400">Frame rate</label>
+                        <div>
+                            <label class="mb-1 block text-[10px] font-medium text-zinc-400">
+                                Frame rate
+                                <span x-show="sharing" class="ml-1 text-emerald-400">· live</span>
+                            </label>
                             <select x-model="shareFps"
+                                    @change="if (sharing) applyShareConstraints()"
                                     class="w-full rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs">
                                 <option value="15">15 fps</option>
                                 <option value="30">30 fps (standard)</option>
@@ -956,6 +964,42 @@
                         });
                         sender.setParameters(params).catch(() => {});
                     } catch (e) { /* best effort */ }
+                },
+                /**
+                 * Adjust resolution / framerate / bitrate of the in-flight screen
+                 * share without stopping and re-prompting for getDisplayMedia.
+                 */
+                async applyShareConstraints() {
+                    if (! this.sharing) return;
+
+                    const heightMap = { 720: 720, 1080: 1080, 1440: 1440, 2160: 2160 };
+                    const targetHeight = heightMap[this.shareQuality] ?? 1080;
+                    const targetWidth = Math.round(targetHeight * 16 / 9);
+                    const fps = Number(this.shareFps);
+
+                    // Resolution / fps live on the raw screen track, not the
+                    // composited canvas track. Find it via the screenStream we
+                    // captured at startScreenShare.
+                    const rawScreenTrack = this.screenStream?.getVideoTracks()[0];
+                    if (rawScreenTrack) {
+                        try {
+                            await rawScreenTrack.applyConstraints({
+                                width: { ideal: targetWidth },
+                                height: { ideal: targetHeight },
+                                frameRate: { ideal: fps, max: fps },
+                            });
+                        } catch (e) {
+                            console.warn('applyShareConstraints (track)', e);
+                        }
+                    }
+
+                    // Re-cap bitrate to match the new resolution. Higher res = more headroom.
+                    const bitrateMap = { 720: 1_500_000, 1080: 2_500_000, 1440: 4_000_000, 2160: 8_000_000 };
+                    const bitrate = bitrateMap[this.shareQuality] ?? 2_500_000;
+                    Object.values(this.peers).forEach(peer => {
+                        const sender = peer.pc?.getSenders().find(s => s.track && s.track.kind === 'video');
+                        if (sender) this.applyBitrateCap(sender, bitrate);
+                    });
                 },
                 async startScreenShare() {
                     if (this.sharing) return;
