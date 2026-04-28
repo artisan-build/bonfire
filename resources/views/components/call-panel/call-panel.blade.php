@@ -294,6 +294,13 @@
                 </div>
             </div>
             <button type="button"
+                    x-show="state === 'connected' && roomId"
+                    @click="promoteToMeeting()"
+                    title="Add people — moves this call to a meeting you can invite others to"
+                    class="inline-flex items-center justify-center rounded-full bg-zinc-700 p-3 text-white ring-1 ring-zinc-500/40 transition hover:bg-zinc-600">
+                <flux:icon variant="solid" name="user-plus" class="size-5" />
+            </button>
+            <button type="button"
                     @click="hangUp()"
                     title="End call"
                     class="inline-flex items-center justify-center rounded-full bg-rose-600 p-3 text-white ring-2 ring-rose-400/60 shadow-lg shadow-rose-500/30 transition hover:bg-rose-700">
@@ -310,6 +317,7 @@
                 me: { name: 'You', avatar: null },
                 state: 'idle', // idle | calling | incoming | connected
                 sessionId: null,
+                roomId: null,
                 peer: { id: null, name: '', avatar: null, userId: null },
                 incoming: { sessionId: null, name: '', avatar: null, callerUserId: null },
                 pc: null,
@@ -398,6 +406,7 @@
                     if (this.state !== 'idle') return;
                     try {
                         this.peer = { id: detail.memberId, name: detail.name, avatar: detail.avatar, userId: null };
+                        this.roomId = detail.roomId ?? null;
                         const result = await this.$wire.initiateCall(detail.roomId, detail.memberId);
                         if (! result) { this.reset(); return; }
                         this.sessionId = result.session_id;
@@ -418,6 +427,7 @@
                         name: e.callerName,
                         avatar: e.callerAvatar,
                         callerMemberId: e.callerMemberId,
+                        roomId: e.roomId ?? null,
                     };
                     this.state = 'incoming';
                     this.startRingtone();
@@ -504,6 +514,7 @@
                     clearTimeout(this.ringTimeout);
                     this.stopRingtone();
                     this.sessionId = this.incoming.sessionId;
+                    this.roomId = this.incoming.roomId ?? null;
                     this.peer = {
                         id: this.incoming.callerMemberId,
                         name: this.incoming.name,
@@ -680,12 +691,46 @@
                                     x: Number(data.x) || 0,
                                     y: Number(data.y) || 0,
                                 };
+                            } else if (data.type === 'promote') {
+                                // Peer is upgrading the call into a multi-user meeting.
+                                // Hop into the same room's meeting; our DM call ends.
+                                const roomId = Number(data.roomId);
+                                const roomName = data.roomName || ('dm-'+roomId);
+                                this.hangUp();
+                                if (roomId) {
+                                    setTimeout(() => {
+                                        window.dispatchEvent(new CustomEvent('bonfire-join-meeting', {
+                                            detail: { roomId, roomName },
+                                        }));
+                                    }, 100);
+                                }
                             }
                         } catch (err) { /* ignore malformed */ }
                     });
                     channel.addEventListener('close', () => {
                         this.remotePointer = { active: false, x: 0, y: 0 };
                     });
+                },
+                /**
+                 * Promote the 1-on-1 DM call into a multi-user meeting in the
+                 * same room. Both parties drop out of the WebRTC peer
+                 * connection and join the meeting-panel which supports invites
+                 * to additional members.
+                 */
+                async promoteToMeeting() {
+                    if (! this.roomId || this.state !== 'connected') return;
+                    const roomId = this.roomId;
+                    // Notify peer over the data channel before we tear down.
+                    if (this.dc && this.dc.readyState === 'open') {
+                        try { this.dc.send(JSON.stringify({ type: 'promote', roomId, roomName: 'dm-'+roomId })); }
+                        catch (e) {}
+                    }
+                    this.hangUp();
+                    setTimeout(() => {
+                        window.dispatchEvent(new CustomEvent('bonfire-join-meeting', {
+                            detail: { roomId, roomName: 'dm-'+roomId },
+                        }));
+                    }, 100);
                 },
                 sendPointer(event) {
                     if (! this.dc || this.dc.readyState !== 'open') return;
@@ -846,6 +891,7 @@
                     this.pendingOffer = null;
                     this.state = 'idle';
                     this.sessionId = null;
+                    this.roomId = null;
                     this.peer = { id: null, name: '', avatar: null };
                     this.incoming = { sessionId: null, name: '', avatar: null };
                     this.startedAt = null;
