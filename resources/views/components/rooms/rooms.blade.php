@@ -106,6 +106,7 @@
             </button>
             <form x-show="creating" x-cloak
                   @submit.prevent="if (newName.trim()) { $wire.createSection(newName); newName = ''; creating = false; }"
+                  @click.outside="creating = false; newName = ''"
                   class="flex items-center gap-1 px-1">
                 <input x-ref="sectionInput"
                        x-model="newName"
@@ -117,6 +118,13 @@
                 <button type="submit"
                         class="rounded bg-sky-600 px-1.5 py-0.5 text-[10px] font-semibold text-white hover:bg-sky-700">
                     Add
+                </button>
+                <button type="button"
+                        title="Cancel"
+                        @click="creating = false; newName = ''"
+                        class="rounded p-1 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700
+                               dark:hover:bg-zinc-800 dark:hover:text-zinc-200">
+                    <flux:icon name="x-mark" class="size-3" />
                 </button>
             </form>
         </div>
