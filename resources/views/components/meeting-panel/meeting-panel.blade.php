@@ -739,10 +739,13 @@
                     pc.addEventListener('connectionstatechange', () => {
                         const connected = pc.connectionState === 'connected';
                         if (this.peers[uid]) {
+                            const wasConnected = this.peers[uid].connected;
                             this.peers[uid].connected = connected;
                             this.peers = { ...this.peers }; // nudge reactivity
+                            if (! wasConnected && connected) this.playJoinChime();
                         }
                         if (['failed', 'disconnected', 'closed'].includes(pc.connectionState)) {
+                            this.playLeaveChime();
                             this.removePeer(uid);
                         }
                     });
@@ -849,6 +852,31 @@
                         await this.$wire.invite(this.roomId, candidate.id);
                         this.invitedIds = [...this.invitedIds, candidate.id];
                     } catch (err) { console.error('invite', err); }
+                },
+                playJoinChime() { this._playChime([523.25, 783.99]); },
+                playLeaveChime() { this._playChime([783.99, 523.25], 0.14); },
+                _playChime(freqs, volume = 0.18) {
+                    try {
+                        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                        if (! AudioCtx) return;
+                        const ctx = new AudioCtx();
+                        let start = 0;
+                        freqs.forEach((freq, i) => {
+                            const osc = ctx.createOscillator();
+                            const gain = ctx.createGain();
+                            osc.type = 'sine';
+                            osc.frequency.value = freq;
+                            const dur = i === freqs.length - 1 ? 0.18 : 0.10;
+                            gain.gain.setValueAtTime(0, ctx.currentTime + start);
+                            gain.gain.linearRampToValueAtTime(volume, ctx.currentTime + start + 0.02);
+                            gain.gain.linearRampToValueAtTime(0, ctx.currentTime + start + dur);
+                            osc.connect(gain).connect(ctx.destination);
+                            osc.start(ctx.currentTime + start);
+                            osc.stop(ctx.currentTime + start + dur + 0.05);
+                            start += dur - 0.01;
+                        });
+                        setTimeout(() => { try { ctx.close(); } catch (e) {} }, 800);
+                    } catch (e) {}
                 },
                 toggleMic() {
                     if (! this.localStream) return;

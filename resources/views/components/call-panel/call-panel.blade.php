@@ -475,6 +475,32 @@
                     if (this.ringtoneInterval) { clearInterval(this.ringtoneInterval); this.ringtoneInterval = null; }
                     if (this.ringtoneCtx) { try { this.ringtoneCtx.close(); } catch (e) {} this.ringtoneCtx = null; }
                 },
+                playJoinChime() { this._playChime([523.25, 783.99]); },
+                playLeaveChime() { this._playChime([783.99, 523.25], 0.14); },
+                _playChime(freqs, volume = 0.18) {
+                    try {
+                        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                        if (! AudioCtx) return;
+                        const ctx = new AudioCtx();
+                        let start = 0;
+                        freqs.forEach((freq, i) => {
+                            const osc = ctx.createOscillator();
+                            const gain = ctx.createGain();
+                            osc.type = 'sine';
+                            osc.frequency.value = freq;
+                            const dur = i === freqs.length - 1 ? 0.18 : 0.10;
+                            gain.gain.setValueAtTime(0, ctx.currentTime + start);
+                            gain.gain.linearRampToValueAtTime(volume, ctx.currentTime + start + 0.02);
+                            gain.gain.linearRampToValueAtTime(0, ctx.currentTime + start + dur);
+                            osc.connect(gain).connect(ctx.destination);
+                            osc.start(ctx.currentTime + start);
+                            osc.stop(ctx.currentTime + start + dur + 0.05);
+                            start += dur - 0.01;
+                        });
+                        // Auto-close after the chime to release resources.
+                        setTimeout(() => { try { ctx.close(); } catch (e) {} }, 800);
+                    } catch (e) {}
+                },
                 startRingback() {
                     if (this.ringbackCtx) return;
                     try {
@@ -523,6 +549,7 @@
                     this.state = 'connected';
                     this.startedAt = Date.now();
                     this.startDurationTimer();
+                    this.playJoinChime();
                     try {
                         await this.setupLocalStream();
                         await this.createPeerConnection(false);
@@ -582,6 +609,7 @@
 
                     this.pc.addEventListener('connectionstatechange', () => {
                         if (['failed', 'disconnected', 'closed'].includes(this.pc.connectionState)) {
+                            if (this.state === 'connected') this.playLeaveChime();
                             if (this.state !== 'idle') this.hangUp();
                         }
                         if (this.pc.connectionState === 'connected' && this.state === 'calling') {
@@ -589,6 +617,7 @@
                             this.stopRingback();
                             this.startedAt = Date.now();
                             this.startDurationTimer();
+                            this.playJoinChime();
                         }
                     });
 
