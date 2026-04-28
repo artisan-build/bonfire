@@ -503,9 +503,8 @@
                                         <flux:icon name="phone" class="size-3 animate-pulse" />
                                     </span>
                                 @endif
-                                @if ($member->status_emoji)
-                                    <span class="text-xs">{{ $member->status_emoji }}</span>
-                                @endif
+                                {{-- The full status (emoji + text) lives in the hover card. Showing
+                                     the emoji again next to every DM name read as visual clutter. --}}
                             </button>
                         </li>
                     @empty
