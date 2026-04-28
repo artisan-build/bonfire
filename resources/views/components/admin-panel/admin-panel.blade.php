@@ -73,18 +73,21 @@
 
     @if ($tab === 'rooms')
         <section class="mt-8 space-y-10">
-            <form wire:submit="createRoom"
-                  class="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm
-                         dark:border-zinc-800 dark:bg-zinc-900">
-                <header class="border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
-                    <h2 class="flex items-center gap-2 text-base font-semibold text-zinc-900 dark:text-zinc-100">
+            <div x-data="{ open: false }"
+                 class="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm
+                        dark:border-zinc-800 dark:bg-zinc-900">
+                <button type="button" @click="open = ! open"
+                        class="flex w-full items-center justify-between gap-3 px-6 py-4 text-left transition
+                               hover:bg-zinc-50
+                               dark:hover:bg-zinc-900/60"
+                        :class="open ? 'border-b border-zinc-200 dark:border-zinc-800' : ''">
+                    <div class="flex items-center gap-2 text-base font-semibold text-zinc-900 dark:text-zinc-100">
                         <flux:icon name="plus-circle" class="size-5 text-zinc-500" />
                         Create a channel
-                    </h2>
-                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                        Channels organize conversations. You can change visibility later.
-                    </p>
-                </header>
+                    </div>
+                    <flux:icon name="chevron-down" ::class="open ? 'rotate-180' : ''" class="size-4 flex-shrink-0 text-zinc-400 transition-transform" />
+                </button>
+                <form x-show="open" x-collapse wire:submit="createRoom">
                 <div class="space-y-5 px-6 py-5">
                     <div class="grid gap-5 sm:grid-cols-2">
                         <div class="space-y-1.5">
@@ -134,12 +137,18 @@
                             dark:border-zinc-800 dark:bg-zinc-900/60">
                     <flux:button type="submit" variant="primary" icon="plus">Create channel</flux:button>
                 </div>
-            </form>
+                </form>
+            </div>
 
             @if ($this->deletedRooms->isNotEmpty())
-                <div class="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 shadow-sm
+                <div x-data="{ open: false }"
+                     class="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 shadow-sm
                             dark:border-zinc-800 dark:bg-zinc-900/60">
-                    <header class="border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
+                    <button type="button" @click="open = ! open"
+                            class="flex w-full items-center justify-between gap-3 px-6 py-4 text-left transition
+                                   hover:bg-zinc-100/60
+                                   dark:hover:bg-zinc-900/80"
+                            :class="open ? 'border-b border-zinc-200 dark:border-zinc-800' : ''">
                         <h2 class="flex items-center gap-2 text-base font-semibold text-zinc-900 dark:text-zinc-100">
                             <flux:icon name="archive-box" class="size-5 text-zinc-500" />
                             Deleted channels
@@ -148,11 +157,9 @@
                                 {{ $this->deletedRooms->count() }}
                             </span>
                         </h2>
-                        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                            Restore a channel to bring back its messages and members. Delete forever is permanent.
-                        </p>
-                    </header>
-                    <ul class="divide-y divide-zinc-200 dark:divide-zinc-800">
+                        <flux:icon name="chevron-down" ::class="open ? 'rotate-180' : ''" class="size-4 flex-shrink-0 text-zinc-400 transition-transform" />
+                    </button>
+                    <ul x-show="open" x-collapse class="divide-y divide-zinc-200 dark:divide-zinc-800">
                         @foreach ($this->deletedRooms as $room)
                             <li wire:key="deleted-room-{{ $room->id }}"
                                 class="flex items-center gap-4 px-6 py-3">
