@@ -12,6 +12,7 @@ use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\PollVote;
 use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\UnreadTracker;
 use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -74,6 +75,16 @@ return new class extends Component
     public function onMessagePosted(): void
     {
         $this->releaseDueScheduledMessages();
+
+        // Keep the user's lastReadAt fresh while they're viewing — otherwise
+        // messages that arrive during their visit leave the channel marked
+        // unread when they navigate away.
+        $member = Bonfire::memberFor(auth()->user());
+        if ($member !== null) {
+            resolve(UnreadTracker::class)->markRead($this->room, $member);
+            $this->dispatch('bonfire:read-state-changed', roomId: $this->room->id);
+        }
+
         unset($this->messages);
     }
 

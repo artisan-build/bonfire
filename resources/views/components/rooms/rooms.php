@@ -140,8 +140,16 @@ return new class extends Component
         $tracker = resolve(UnreadTracker::class);
         $starredIds = $this->starredRoomIds();
 
-        $rooms->each(function (Room $room) use ($tracker, $member, $starredIds): void {
-            $room->setAttribute('has_unread', $tracker->hasUnread($room, $member));
+        $activeRoomId = $this->currentRoomId;
+        $rooms->each(function (Room $room) use ($tracker, $member, $starredIds, $activeRoomId): void {
+            // The room you're currently viewing never shows an unread indicator,
+            // regardless of what the underlying lastReadAt says. Otherwise the
+            // dot lingers when the rooms component renders before room-show.mount
+            // has had a chance to call markRead.
+            $hasUnread = $room->id === $activeRoomId
+                ? false
+                : $tracker->hasUnread($room, $member);
+            $room->setAttribute('has_unread', $hasUnread);
             $room->setAttribute('is_starred', in_array($room->id, $starredIds, true));
         });
 
