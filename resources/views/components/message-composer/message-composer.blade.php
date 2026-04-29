@@ -15,6 +15,8 @@
               { name: 'me',     args: '<action>',           hint: 'Post an action — italicized as “* you action”' },
               { name: 'shrug',  args: '[message]',          hint: 'Append the ¯\\_(ツ)_/¯ shrug' },
               { name: 'poll',   args: 'Question | A | B…',  hint: 'Start a poll' },
+              { name: 'remind', args: '<Xm|Xh|Xd> <text>',  hint: 'Schedule a reminder in this channel' },
+              { name: 'help',   args: '',                   hint: 'List available slash commands' },
           ],
 
           recording: null,
