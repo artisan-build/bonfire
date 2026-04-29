@@ -83,10 +83,26 @@
                   }
                   clearTimeout(this._draftSaveTimer);
                   this._draftSaveTimer = setTimeout(() => {
+                      // Re-read the editor at flush time. Closure-captured html is stale
+                      // if the user submitted in the 400ms window — saving it would ghost
+                      // the just-sent message back as a draft.
                       try {
-                          localStorage.setItem(draftKey, JSON.stringify({ html, savedAt: Date.now() }));
+                          const currentEditor = getEditor();
+                          const current = currentEditor ? currentEditor.getHTML() : html;
+                          const currentTrimmed = (current || '').replace(/<p>\s*<\/p>/g, '').trim();
+                          if (currentTrimmed === '') {
+                              localStorage.removeItem(draftKey);
+                              return;
+                          }
+                          localStorage.setItem(draftKey, JSON.stringify({ html: current, savedAt: Date.now() }));
                       } catch (e) {}
                   }, 400);
+              };
+
+              this.clearDraft = () => {
+                  clearTimeout(this._draftSaveTimer);
+                  this._draftSaveTimer = null;
+                  try { localStorage.removeItem(draftKey); } catch (e) {}
               };
 
               const readDraft = () => {
@@ -112,7 +128,7 @@
                       const editor = getEditor();
                       if (editor) editor.commands.setContent('', false);
                       self.$wire.set('body', '', false);
-                      localStorage.removeItem(draftKey);
+                      self.clearDraft();
                   } catch (e) {}
               };
 
@@ -197,6 +213,13 @@
                   self.submitForm();
               };
               document.addEventListener('keydown', handleShortcut, true);
+
+              // After a successful send the server resets `body`. Drop the draft
+              // synchronously so a pending debounced save can't ghost the just-sent
+              // text back into localStorage.
+              const onSent = () => self.clearDraft && self.clearDraft();
+              window.addEventListener('bonfire-own-message-sent', onSent);
+              this._onSentListener = onSent;
           },
 
           checkMentionTrigger(editor) {
@@ -513,6 +536,10 @@
                   { label: 'Tomorrow at 9:00 AM', value: fmt(tmr) },
                   { label: 'Next Monday at 9:00 AM', value: fmt(nextMon) },
               ];
+          },
+          destroy() {
+              if (this._onSentListener) window.removeEventListener('bonfire-own-message-sent', this._onSentListener);
+              if (this._draftSaveTimer) clearTimeout(this._draftSaveTimer);
           },
       }"
       @click.outside="showEmoji = false; showMentions = false; scheduleOpen = false"
