@@ -290,6 +290,17 @@
           submitForm() {
               this.showMentions = false;
               this.showEmoji = false;
+              this.showCommands = false;
+              // Force-sync the editor's current HTML to the server property
+              // synchronously before submitting. wire:model.live.debounce.500ms
+              // means fast typing + Enter would otherwise submit a stale or
+              // half-typed body (e.g. typing /helpp + Enter could submit only "/").
+              try {
+                  const editor = this._getEditor && this._getEditor();
+                  if (editor) {
+                      this.$wire.set('body', editor.getHTML(), false);
+                  }
+              } catch (e) {}
               const form = this.$refs.form;
               if (form) form.requestSubmit();
           },
