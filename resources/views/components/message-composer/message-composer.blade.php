@@ -82,15 +82,20 @@
               this._draftSaveTimer = null;
 
               const saveDraft = (html) => {
+                  const trimmed = (html || '').replace(/<p>\s*<\/p>/g, '').trim();
+                  // If the editor is empty, remove the draft IMMEDIATELY (no debounce)
+                  // — otherwise a fast clear-then-refresh leaves the previous draft
+                  // behind in localStorage and it ghosts back into the composer.
+                  if (trimmed === '') {
+                      clearTimeout(this._draftSaveTimer);
+                      this._draftSaveTimer = null;
+                      try { localStorage.removeItem(draftKey); } catch (e) {}
+                      return;
+                  }
                   clearTimeout(this._draftSaveTimer);
                   this._draftSaveTimer = setTimeout(() => {
                       try {
-                          const trimmed = (html || '').replace(/<p>\s*<\/p>/g, '').trim();
-                          if (trimmed === '') {
-                              localStorage.removeItem(draftKey);
-                          } else {
-                              localStorage.setItem(draftKey, JSON.stringify({ html, savedAt: Date.now() }));
-                          }
+                          localStorage.setItem(draftKey, JSON.stringify({ html, savedAt: Date.now() }));
                       } catch (e) {}
                   }, 400);
               };
