@@ -172,6 +172,31 @@ return new class extends Component
             return;
         }
 
+        // /poll: validate format up-front and show a usage hint instead of
+        // letting malformed `/poll …` post as literal text.
+        if (preg_match('#^/poll(?:\s+|$)#si', $plain) && $this->pendingPoll === null && $this->parsePollCommand($plain) === null) {
+            $this->dispatch('bonfire-toast', message: 'Usage: /poll Question | Option A | Option B [| Option C…]');
+            $this->reset('body');
+
+            return;
+        }
+
+        // /me: validate format and show a hint when args are missing.
+        if (preg_match('#^/me(?:\s|$)#si', $plain) && ! preg_match('#^/me\s+\S.*$#si', $plain)) {
+            $this->dispatch('bonfire-toast', message: 'Usage: /me <action> — e.g. /me waves at the team');
+            $this->reset('body');
+
+            return;
+        }
+
+        // /remind: validate format up-front and show a hint when malformed.
+        if (preg_match('#^/remind(?:\s+|$)#si', $plain) && $this->parseReminderCommand($plain) === null) {
+            $this->dispatch('bonfire-toast', message: 'Usage: /remind <duration> <text> — e.g. /remind 30m take a break (units: m, h, d)');
+            $this->reset('body');
+
+            return;
+        }
+
         // /remind <Xm|Xh|Xd> <text> — schedule a message in this channel at that time.
         if ($remind = $this->parseReminderCommand($plain)) {
             $this->scheduledFor = $remind['at']->toIso8601String();
