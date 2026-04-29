@@ -664,7 +664,7 @@
                             </button>
                             <div x-show="open"
                                  x-transition.opacity.duration.100ms
-                                 class="absolute right-0 top-full z-20 mt-1 grid grid-cols-8 gap-1 rounded-md border border-zinc-200 bg-white p-1.5 shadow-lg
+                                 class="absolute right-0 top-full z-20 mt-1 grid w-fit grid-cols-[repeat(8,auto)] gap-1 rounded-md border border-zinc-200 bg-white p-1.5 shadow-lg
                                         dark:border-zinc-700 dark:bg-zinc-900"
                                  style="display: none;">
                                 @foreach (['👍','❤️','😂','🎉','🚀','🔥','👀','🙏','✅','❌','😢','🤔','💯','👏','😮','💙'] as $emoji)
