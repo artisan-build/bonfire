@@ -705,7 +705,7 @@
                             <div x-show="open"
                                  x-transition.opacity.duration.100ms
                                  @click.stop
-                                 class="absolute right-0 top-full z-20 mt-1 flex w-80 flex-col overflow-hidden rounded-lg border border-zinc-200
+                                 class="absolute right-0 bottom-full z-20 mb-1 flex w-80 flex-col overflow-hidden rounded-lg border border-zinc-200
                                         bg-white shadow-lg
                                         dark:border-zinc-700 dark:bg-zinc-900"
                                  style="display: none;">
