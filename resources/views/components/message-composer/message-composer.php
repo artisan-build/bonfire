@@ -164,6 +164,22 @@ return new class extends Component
         abort_unless($member !== null && $member->is_active, 403);
         $this->ensureMemberMayPost($member);
 
+        // /help — show available slash commands as a toast and clear the input.
+        if (preg_match('#^/help\s*$#i', $plain)) {
+            $this->dispatch('bonfire-toast', message: 'Slash commands: /me <action>, /shrug [text], /poll Question | A | B | C, /remind <Xm|Xh|Xd> <text>, /help');
+            $this->reset('body');
+
+            return;
+        }
+
+        // /remind <Xm|Xh|Xd> <text> — schedule a message in this channel at that time.
+        if ($remind = $this->parseReminderCommand($plain)) {
+            $this->scheduledFor = $remind['at']->toIso8601String();
+            $this->body = '<p>🔔 '.htmlspecialchars($remind['text'], ENT_QUOTES | ENT_HTML5).'</p>';
+            $body = $this->body;
+            $plain = '🔔 '.$remind['text'];
+        }
+
         $parent = $this->parentId !== null ? Message::query()->findOrFail($this->parentId) : null;
 
         // Staged poll wins over a typed /poll command.
@@ -247,6 +263,39 @@ return new class extends Component
         }
 
         return null;
+    }
+
+    /**
+     * Parse `/remind <Xm|Xh|Xd> <text>` (e.g. "/remind 30m take the trash out").
+     *
+     * @return array{at: Carbon, text: string}|null
+     */
+    private function parseReminderCommand(string $plain): ?array
+    {
+        if (! preg_match('#^/remind\s+(\d+)\s*(m|min|mins|minutes|h|hr|hrs|hour|hours|d|day|days)\s+(.+)$#si', $plain, $m)) {
+            return null;
+        }
+
+        $amount = max(1, (int) $m[1]);
+        $unit = strtolower($m[2]);
+        $text = trim($m[3]);
+
+        if ($text === '') {
+            return null;
+        }
+
+        $at = match (true) {
+            str_starts_with($unit, 'm') => now()->addMinutes($amount),
+            str_starts_with($unit, 'h') => now()->addHours($amount),
+            str_starts_with($unit, 'd') => now()->addDays($amount),
+            default => null,
+        };
+
+        if ($at === null) {
+            return null;
+        }
+
+        return ['at' => $at, 'text' => $text];
     }
 
     /**
