@@ -220,9 +220,12 @@
          get typingLabel() {
              const names = Object.values(this.typing).map(t => t.name).filter(Boolean);
              if (names.length === 0) return '';
-             if (names.length === 1) return names[0] + ' is typing…';
-             if (names.length === 2) return names.join(' and ') + ' are typing…';
-             return names.length + ' people are typing…';
+             if (names.length === 1) return names[0] + ' is typing';
+             if (names.length === 2) return names.join(' and ') + ' are typing';
+             return names.length + ' people are typing';
+         },
+         get typingActive() {
+             return Object.keys(this.typing).length > 0;
          }
      }">
     @php
@@ -690,9 +693,16 @@
         @endforelse
     </ul>
 
-    <div x-show="typingLabel"
-         x-text="typingLabel"
-         class="px-4 py-1 text-xs italic text-zinc-500 dark:text-zinc-400"></div>
+    <div x-show="typingActive"
+         x-transition.opacity.duration.150ms
+         class="flex items-center gap-2 px-4 py-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+        <span class="inline-flex gap-1" aria-hidden="true">
+            <span class="size-1.5 animate-bounce rounded-full bg-zinc-400 dark:bg-zinc-500" style="animation-delay: 0ms"></span>
+            <span class="size-1.5 animate-bounce rounded-full bg-zinc-400 dark:bg-zinc-500" style="animation-delay: 150ms"></span>
+            <span class="size-1.5 animate-bounce rounded-full bg-zinc-400 dark:bg-zinc-500" style="animation-delay: 300ms"></span>
+        </span>
+        <span x-text="typingLabel" class="italic"></span>
+    </div>
 
     <div x-show="copyToast"
          x-transition.opacity.duration.150ms
