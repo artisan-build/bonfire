@@ -8,17 +8,6 @@
           mentionIndex: 0,
           emojis: ['👍','👏','🙏','🎉','🔥','🚀','💯','✅','❌','⭐','❤️','💙','😂','😅','😊','😢','😮','😡','🤔','👀','🙌','🤝','☕','🥳'],
 
-          showCommands: false,
-          commandQuery: '',
-          commandIndex: 0,
-          commands: [
-              { name: 'me',     args: '<action>',           hint: 'Post an action — italicized as “* you action”' },
-              { name: 'shrug',  args: '[message]',          hint: 'Append the ¯\\_(ツ)_/¯ shrug' },
-              { name: 'poll',   args: 'Question | A | B…',  hint: 'Start a poll' },
-              { name: 'remind', args: '<Xm|Xh|Xd> <text>',  hint: 'Schedule a reminder in this channel' },
-              { name: 'help',   args: '',                   hint: 'List available slash commands' },
-          ],
-
           recording: null,
           recordArmed: false,
           recordKind: null,
@@ -130,8 +119,8 @@
               const attachEditor = () => {
                   const editor = getEditor();
                   if (! editor) { setTimeout(attachEditor, 120); return; }
-                  editor.on('update', () => { self.checkMentionTrigger(editor); self.checkCommandTrigger(editor); });
-                  editor.on('selectionUpdate', () => { self.checkMentionTrigger(editor); self.checkCommandTrigger(editor); });
+                  editor.on('update', () => { self.checkMentionTrigger(editor); });
+                  editor.on('selectionUpdate', () => { self.checkMentionTrigger(editor); });
                   editor.on('update', () => {
                       try { saveDraft(editor.getHTML()); } catch (e) {}
                   });
@@ -151,33 +140,6 @@
               const handleShortcut = (e) => {
                   if (! root.contains(e.target)) return;
                   if (! (e.target.matches('[contenteditable=true]') || e.target.closest('[contenteditable=true]'))) return;
-
-                  if (self.showCommands && ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(e.key)) {
-                      const list = self.filteredCommands;
-                      if (e.key === 'ArrowDown') {
-                          e.preventDefault();
-                          self.commandIndex = Math.min(list.length - 1, self.commandIndex + 1);
-                          return;
-                      }
-                      if (e.key === 'ArrowUp') {
-                          e.preventDefault();
-                          self.commandIndex = Math.max(0, self.commandIndex - 1);
-                          return;
-                      }
-                      if (e.key === 'Enter' || e.key === 'Tab') {
-                          if (list.length > 0) {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              self.selectCommand(list[self.commandIndex].name);
-                              return;
-                          }
-                      }
-                      if (e.key === 'Escape') {
-                          e.preventDefault();
-                          self.showCommands = false;
-                          return;
-                      }
-                  }
 
                   if (self.showMentions && ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(e.key)) {
                       const list = self.filteredMembers;
@@ -256,41 +218,10 @@
               }
           },
 
-          /** Slash commands trigger only when '/' is the very first character of the message. */
-          checkCommandTrigger(editor) {
-              const text = editor.getText().replace(/ /g, ' ');
-              const match = text.match(/^\/([a-z]*)$/i);
-              if (match) {
-                  this.commandQuery = match[1].toLowerCase();
-                  this.commandIndex = 0;
-                  this.showCommands = true;
-              } else if (this.showCommands) {
-                  this.showCommands = false;
-                  this.commandQuery = '';
-              }
-          },
-
-          get filteredCommands() {
-              const q = (this.commandQuery || '').toLowerCase();
-              if (q === '') return this.commands;
-              return this.commands.filter(c => c.name.startsWith(q));
-          },
-
-          selectCommand(name) {
-              const el = document.querySelector('.bonfire-composer [data-flux-editor]')
-                  ?? document.querySelector('[data-flux-editor]');
-              const editor = el?._tiptap || el?.editor;
-              if (! editor) return;
-
-              editor.chain().focus().setContent('<p>/' + name + ' </p>').run();
-              this.showCommands = false;
-              this.commandQuery = '';
-          },
 
           submitForm() {
               this.showMentions = false;
               this.showEmoji = false;
-              this.showCommands = false;
               const form = this.$refs.form;
               if (form) form.requestSubmit();
           },
@@ -584,7 +515,7 @@
               ];
           },
       }"
-      @click.outside="showEmoji = false; showMentions = false; showCommands = false; scheduleOpen = false"
+      @click.outside="showEmoji = false; showMentions = false; scheduleOpen = false"
       :style="'--bonfire-editor-height: ' + editorHeight + 'px'"
       class="bonfire-composer relative">
 
@@ -1480,46 +1411,6 @@
             </template>
             <template x-if="filteredMembers.length === 0">
                 <li class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">No matches</li>
-            </template>
-        </ul>
-    </div>
-
-    {{-- Slash command popup --}}
-    <div x-show="showCommands"
-         x-transition.opacity.duration.100ms
-         @click.stop
-         class="absolute left-0 z-20 w-80 overflow-hidden rounded-lg border border-zinc-200
-                bg-white shadow-lg
-                dark:border-zinc-700 dark:bg-zinc-900"
-         style="display: none; bottom: calc(var(--bonfire-editor-height, 7rem) + 2.75rem);">
-        <div class="border-b border-zinc-200 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500
-                    dark:border-zinc-800 dark:text-zinc-400">
-            Slash commands
-        </div>
-        <ul class="max-h-60 overflow-y-auto py-1">
-            <template x-for="(cmd, idx) in filteredCommands" :key="cmd.name">
-                <li>
-                    <button type="button"
-                            @mousedown.prevent @click="selectCommand(cmd.name)"
-                            @mouseenter="commandIndex = idx"
-                            :class="idx === commandIndex ? 'bg-sky-50 text-sky-900 dark:bg-sky-900/40 dark:text-sky-100' : ''"
-                            class="flex w-full items-center gap-3 px-3 py-2 text-left text-sm
-                                   hover:bg-zinc-100
-                                   dark:hover:bg-zinc-800">
-                        <span class="flex size-6 flex-shrink-0 items-center justify-center rounded bg-zinc-100 font-mono text-xs font-bold text-zinc-700
-                                     dark:bg-zinc-800 dark:text-zinc-200">/</span>
-                        <span class="flex min-w-0 flex-1 flex-col">
-                            <span class="font-mono text-xs">
-                                <span class="font-bold" x-text="'/' + cmd.name"></span>
-                                <span class="ml-1 text-zinc-500" x-text="cmd.args"></span>
-                            </span>
-                            <span class="text-[11px] text-zinc-500" x-text="cmd.hint"></span>
-                        </span>
-                    </button>
-                </li>
-            </template>
-            <template x-if="filteredCommands.length === 0">
-                <li class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">No matching command</li>
             </template>
         </ul>
     </div>

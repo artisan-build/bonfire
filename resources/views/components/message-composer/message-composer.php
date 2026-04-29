@@ -165,64 +165,15 @@ return new class extends Component
         abort_unless($member !== null && $member->is_active, 403);
         $this->ensureMemberMayPost($member);
 
-        // /help — show available slash commands as a toast and clear the input.
-        if (preg_match('#^/help\s*$#i', $plain)) {
-            Flux::toast(text: 'Slash commands: /me <action>, /shrug [text], /poll Question | A | B | C, /remind <Xm|Xh|Xd> <text>, /help');
-            $this->reset('body');
-
-            return;
-        }
-
-        // /poll: validate format up-front and show a usage hint instead of
-        // letting malformed `/poll …` post as literal text.
-        if (preg_match('#^/poll(?:\s+|$)#si', $plain) && $this->pendingPoll === null && $this->parsePollCommand($plain) === null) {
-            Flux::toast(text: 'Usage: /poll Question | Option A | Option B [| Option C…]');
-            $this->reset('body');
-
-            return;
-        }
-
-        // /me: validate format and show a hint when args are missing.
-        if (preg_match('#^/me(?:\s|$)#si', $plain) && ! preg_match('#^/me\s+\S.*$#si', $plain)) {
-            Flux::toast(text: 'Usage: /me <action> — e.g. /me waves at the team');
-            $this->reset('body');
-
-            return;
-        }
-
-        // /remind: validate format up-front and show a hint when malformed.
-        if (preg_match('#^/remind(?:\s+|$)#si', $plain) && $this->parseReminderCommand($plain) === null) {
-            Flux::toast(text: 'Usage: /remind <duration> <text> — e.g. /remind 30m take a break (units: m, h, d)');
-            $this->reset('body');
-
-            return;
-        }
-
-        // /remind <Xm|Xh|Xd> <text> — schedule a message in this channel at that time.
-        if ($remind = $this->parseReminderCommand($plain)) {
-            $this->scheduledFor = $remind['at']->toIso8601String();
-            $this->body = '<p>🔔 '.htmlspecialchars($remind['text'], ENT_QUOTES | ENT_HTML5).'</p>';
-            $body = $this->body;
-            $plain = '🔔 '.$remind['text'];
-        }
-
         $parent = $this->parentId !== null ? Message::query()->findOrFail($this->parentId) : null;
 
-        // Staged poll wins over a typed /poll command.
-        $poll = $this->pendingPoll ?? $this->parsePollCommand($plain);
+        // Staged poll (created via the Poll modal) — text body is whatever the
+        // user typed alongside it.
+        $poll = $this->pendingPoll;
 
         $effectiveBody = $plain === ''
             ? ($poll !== null ? (string) ($poll['question'] ?? '📎') : '📎')
             : $body;
-
-        // Slash command transforms (apply before poll handling so /poll still wins).
-        if ($poll === null) {
-            $transformed = $this->applySlashCommand($plain, $member);
-            if ($transformed !== null) {
-                $effectiveBody = $transformed;
-                $plain = trim(strip_tags(html_entity_decode($transformed, ENT_QUOTES | ENT_HTML5)));
-            }
-        }
 
         $scheduledAt = $this->scheduledFor !== null && $this->scheduledFor !== ''
             ? Carbon::parse($this->scheduledFor)
@@ -236,13 +187,6 @@ return new class extends Component
             Flux::toast(text: 'You can have at most '.self::MAX_SCHEDULED_MESSAGES.' scheduled messages. Send or cancel one first.');
 
             return;
-        }
-
-        // /poll slash-command: replace body with the bare question (the slash-command
-        // string itself is not useful as visible body). Staged poll: keep the user's
-        // typed body so @mentions and accompanying text survive.
-        if ($poll !== null && $this->pendingPoll === null) {
-            $effectiveBody = $poll['question'];
         }
 
         $message = $this->createMessage($member, $parent, $effectiveBody, $scheduledAt, $poll);
@@ -261,96 +205,6 @@ return new class extends Component
         $this->pendingPoll = null;
         $this->reset('body', 'pendingAttachments', 'pendingAttachmentIds', 'scheduledFor', 'alsoSendToChannel');
         $this->dispatch('bonfire-own-message-sent');
-    }
-
-    /**
-     * Apply `/me`, `/shrug` slash commands to the message body. Returns the
-     * transformed HTML body, or null if no command matched.
-     */
-    private function applySlashCommand(string $plain, ?Member $member): ?string
-    {
-        if ($plain === '') {
-            return null;
-        }
-
-        if (preg_match('#^/me\s+(.+)$#si', $plain, $m)) {
-            $name = htmlspecialchars($member?->display_name ?? 'Someone', ENT_QUOTES | ENT_HTML5);
-            $body = htmlspecialchars(trim($m[1]), ENT_QUOTES | ENT_HTML5);
-
-            return '<p><em>* '.$name.' '.$body.'</em></p>';
-        }
-
-        if (preg_match('#^/shrug(?:\s+(.*))?$#si', $plain, $m)) {
-            $shrug = '¯\\_(ツ)_/¯';
-            $trailing = isset($m[1]) ? trim($m[1]) : '';
-            $combined = $trailing === '' ? $shrug : $shrug.' '.$trailing;
-
-            return '<p>'.htmlspecialchars($combined, ENT_QUOTES | ENT_HTML5).'</p>';
-        }
-
-        return null;
-    }
-
-    /**
-     * Parse `/remind <Xm|Xh|Xd> <text>` (e.g. "/remind 30m take the trash out").
-     *
-     * @return array{at: Carbon, text: string}|null
-     */
-    private function parseReminderCommand(string $plain): ?array
-    {
-        if (! preg_match('#^/remind\s+(\d+)\s*(m|min|mins|minutes|h|hr|hrs|hour|hours|d|day|days)\s+(.+)$#si', $plain, $m)) {
-            return null;
-        }
-
-        $amount = max(1, (int) $m[1]);
-        $unit = strtolower($m[2]);
-        $text = trim($m[3]);
-
-        if ($text === '') {
-            return null;
-        }
-
-        $at = match (true) {
-            str_starts_with($unit, 'm') => now()->addMinutes($amount),
-            str_starts_with($unit, 'h') => now()->addHours($amount),
-            str_starts_with($unit, 'd') => now()->addDays($amount),
-            default => null,
-        };
-
-        if ($at === null) {
-            return null;
-        }
-
-        return ['at' => $at, 'text' => $text];
-    }
-
-    /**
-     * Parse `/poll Question | Option 1 | Option 2` from a plain-text body.
-     *
-     * @return array{question: string, options: array<int, string>}|null
-     */
-    private function parsePollCommand(string $plain): ?array
-    {
-        if (! preg_match('#^/poll\s+(.+)$#si', $plain, $matches)) {
-            return null;
-        }
-
-        $parts = array_values(array_filter(
-            array_map('trim', explode('|', $matches[1])),
-            fn (string $part): bool => $part !== '',
-        ));
-
-        if (count($parts) < 3) {
-            return null;
-        }
-
-        $question = array_shift($parts);
-        $options = array_slice($parts, 0, 10);
-
-        return [
-            'question' => $question,
-            'options' => array_values($options),
-        ];
     }
 
     public function dismissScheduled(): void
