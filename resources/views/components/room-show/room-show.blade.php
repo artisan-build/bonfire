@@ -649,7 +649,7 @@
                                             : 'border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-300')
                                         : 'border-zinc-300 bg-white text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'"
                                     class="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold shadow-sm transition">
-                                <flux:icon name="bolt" :variant="@js('solid')" class="size-3.5" />
+                                <flux:icon name="bolt" variant="solid" class="size-3.5" />
                                 <span x-show="! pttEnabled">PTT off</span>
                                 <span x-show="pttEnabled && ! pttHeld">PTT · hold <kbd class="ml-0.5 rounded bg-white/40 px-1 font-mono text-[10px] dark:bg-black/30" x-text="pttKey === '`' ? '`' : pttKey"></kbd></span>
                                 <span x-show="pttHeld">Live · talking</span>
