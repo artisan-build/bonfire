@@ -44,6 +44,7 @@
                   const next = Math.max(72, Math.min(480, startHeight + delta));
                   this.editorHeight = next;
                   localStorage.setItem('bonfire.editorHeight', String(next));
+                  window.dispatchEvent(new CustomEvent('bonfire-composer-resized'));
               };
               const up = () => {
                   this.resizingEditor = false;
@@ -58,6 +59,7 @@
           resetEditorHeight() {
               this.editorHeight = 112;
               localStorage.setItem('bonfire.editorHeight', '112');
+              window.dispatchEvent(new CustomEvent('bonfire-composer-resized'));
           },
 
           init() {

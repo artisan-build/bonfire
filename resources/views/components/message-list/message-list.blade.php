@@ -128,9 +128,20 @@
          _refreshHandler: null,
          _hashHandler: null,
          _echoChannel: null,
+         _composerResizeHandler: null,
          init() {
              $el.scrollTop = $el.scrollHeight;
              this.$nextTick(() => this.applyHighlight());
+
+             // When the user resizes the composer, the message-list's available
+             // height changes. If the user was parked at the bottom, snap them
+             // back so the latest message stays visible.
+             this._composerResizeHandler = () => {
+                 if (this.nearBottom) {
+                     $el.scrollTop = $el.scrollHeight;
+                 }
+             };
+             window.addEventListener('bonfire-composer-resized', this._composerResizeHandler);
 
              // Track whether the user is parked at the bottom so auto-scroll only kicks
              // in when it won't yank them away from history they're reading.
@@ -212,6 +223,7 @@
              if (this._ownSentHandler) window.removeEventListener('bonfire-own-message-sent', this._ownSentHandler);
              if (this._refreshHandler) window.removeEventListener('bonfire-refresh-messages', this._refreshHandler);
              if (this._hashHandler) window.removeEventListener('hashchange', this._hashHandler);
+             if (this._composerResizeHandler) window.removeEventListener('bonfire-composer-resized', this._composerResizeHandler);
              if (this._echoChannel && typeof window.Echo !== 'undefined') {
                  try { window.Echo.leave('bonfire.room.{{ $room->id }}'); } catch (e) {}
              }
