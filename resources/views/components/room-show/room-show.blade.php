@@ -419,7 +419,7 @@
         <div class="flex min-h-0 flex-1 flex-col">
             <livewire:bonfire::message-list :room="$room" :previous-read-at="$previousReadAt" wire:key="room-{{ $room->id }}-list" />
 
-            <div class="flex-shrink-0 px-4 pb-4 pt-2">
+            <div class="flex-shrink-0 border-t border-zinc-200 px-4 pb-4 pt-3 dark:border-zinc-800">
                 @if ($this->canPost)
                     <livewire:bonfire::message-composer
                         :room="$room"

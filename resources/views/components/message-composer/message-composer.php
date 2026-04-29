@@ -9,6 +9,7 @@ use ArtisanBuild\Bonfire\Models\Attachment;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\Room;
+use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
@@ -166,7 +167,7 @@ return new class extends Component
 
         // /help — show available slash commands as a toast and clear the input.
         if (preg_match('#^/help\s*$#i', $plain)) {
-            $this->dispatch('bonfire-toast', message: 'Slash commands: /me <action>, /shrug [text], /poll Question | A | B | C, /remind <Xm|Xh|Xd> <text>, /help');
+            Flux::toast(text: 'Slash commands: /me <action>, /shrug [text], /poll Question | A | B | C, /remind <Xm|Xh|Xd> <text>, /help');
             $this->reset('body');
 
             return;
@@ -175,7 +176,7 @@ return new class extends Component
         // /poll: validate format up-front and show a usage hint instead of
         // letting malformed `/poll …` post as literal text.
         if (preg_match('#^/poll(?:\s+|$)#si', $plain) && $this->pendingPoll === null && $this->parsePollCommand($plain) === null) {
-            $this->dispatch('bonfire-toast', message: 'Usage: /poll Question | Option A | Option B [| Option C…]');
+            Flux::toast(text: 'Usage: /poll Question | Option A | Option B [| Option C…]');
             $this->reset('body');
 
             return;
@@ -183,7 +184,7 @@ return new class extends Component
 
         // /me: validate format and show a hint when args are missing.
         if (preg_match('#^/me(?:\s|$)#si', $plain) && ! preg_match('#^/me\s+\S.*$#si', $plain)) {
-            $this->dispatch('bonfire-toast', message: 'Usage: /me <action> — e.g. /me waves at the team');
+            Flux::toast(text: 'Usage: /me <action> — e.g. /me waves at the team');
             $this->reset('body');
 
             return;
@@ -191,7 +192,7 @@ return new class extends Component
 
         // /remind: validate format up-front and show a hint when malformed.
         if (preg_match('#^/remind(?:\s+|$)#si', $plain) && $this->parseReminderCommand($plain) === null) {
-            $this->dispatch('bonfire-toast', message: 'Usage: /remind <duration> <text> — e.g. /remind 30m take a break (units: m, h, d)');
+            Flux::toast(text: 'Usage: /remind <duration> <text> — e.g. /remind 30m take a break (units: m, h, d)');
             $this->reset('body');
 
             return;
@@ -232,7 +233,7 @@ return new class extends Component
         }
 
         if ($scheduledAt !== null && $this->scheduledMessagesCount() >= self::MAX_SCHEDULED_MESSAGES) {
-            $this->dispatch('bonfire-toast', message: 'You can have at most '.self::MAX_SCHEDULED_MESSAGES.' scheduled messages. Send or cancel one first.');
+            Flux::toast(text: 'You can have at most '.self::MAX_SCHEDULED_MESSAGES.' scheduled messages. Send or cancel one first.');
 
             return;
         }
