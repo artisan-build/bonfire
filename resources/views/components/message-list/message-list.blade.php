@@ -479,6 +479,25 @@
                                 @endif
                             </div>
 
+                            @php($reactionsForMessage = $this->reactionsByMessage[$message->id] ?? [])
+                            @if ($reactionsForMessage !== [])
+                                <div class="mt-1 flex flex-wrap gap-1">
+                                    @foreach ($reactionsForMessage as $emoji => $info)
+                                        <button type="button"
+                                                wire:click="toggleReaction({{ $message->id }}, '{{ $emoji }}')"
+                                                title="{{ implode(', ', $info['names']) }}"
+                                                @class([
+                                                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition',
+                                                    'border border-sky-300 bg-sky-50 text-sky-800 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-950/60 dark:text-sky-200 dark:hover:bg-sky-900/60' => $info['mine'],
+                                                    'border border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-200 dark:hover:bg-zinc-700' => ! $info['mine'],
+                                                ])>
+                                            <span class="text-sm leading-none">{{ $emoji }}</span>
+                                            <span class="font-medium tabular-nums">{{ $info['count'] }}</span>
+                                        </button>
+                                    @endforeach
+                                </div>
+                            @endif
+
                             <div x-show="editing"
                                  x-cloak
                                  class="mt-1 rounded-md border border-sky-400 bg-white
@@ -632,6 +651,32 @@
                                 rounded-md border border-zinc-200 bg-white p-0.5 shadow-sm
                                 group-hover:pointer-events-auto group-hover:flex
                                 dark:border-zinc-700 dark:bg-zinc-900">
+                        <div class="relative"
+                             x-data="{ open: false }"
+                             @click.outside="open = false"
+                             @keydown.escape.window="open = false">
+                            <button type="button"
+                                    title="Add reaction"
+                                    @click="open = ! open"
+                                    class="rounded p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900
+                                           dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
+                                <flux:icon name="face-smile" class="size-4" />
+                            </button>
+                            <div x-show="open"
+                                 x-transition.opacity.duration.100ms
+                                 class="absolute right-0 top-full z-20 mt-1 grid grid-cols-8 gap-1 rounded-md border border-zinc-200 bg-white p-1.5 shadow-lg
+                                        dark:border-zinc-700 dark:bg-zinc-900"
+                                 style="display: none;">
+                                @foreach (['👍','❤️','😂','🎉','🚀','🔥','👀','🙏','✅','❌','😢','🤔','💯','👏','😮','💙'] as $emoji)
+                                    <button type="button"
+                                            wire:click="toggleReaction({{ $message->id }}, '{{ $emoji }}')"
+                                            @click="open = false"
+                                            class="flex size-7 items-center justify-center rounded text-base transition
+                                                   hover:bg-zinc-100 hover:scale-125
+                                                   dark:hover:bg-zinc-800">{{ $emoji }}</button>
+                                @endforeach
+                            </div>
+                        </div>
                         @feature('message_threads')
                             <button wire:click="openThread({{ $message->id }})"
                                     type="button"

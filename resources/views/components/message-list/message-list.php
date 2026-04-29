@@ -182,6 +182,92 @@ return new class extends Component
         return true;
     }
 
+    /**
+     * Add or remove the current member's reaction with a specific emoji on a message.
+     * Multiple emoji can coexist per (message, member); the unique key is
+     * (message_id, member_id, emoji), so re-clicking the same emoji removes it.
+     */
+    public function toggleReaction(int $messageId, string $emoji): void
+    {
+        $member = $this->currentMember();
+        if ($member === null || ! $member->is_active) {
+            return;
+        }
+
+        // Limit emoji length so a malformed payload can't overflow the column.
+        $emoji = trim($emoji);
+        if ($emoji === '' || mb_strlen($emoji) > 16) {
+            return;
+        }
+
+        $message = Message::query()
+            ->where('tenant_id', Bonfire::tenantId())
+            ->whereKey($messageId)
+            ->first();
+
+        if ($message === null) {
+            return;
+        }
+
+        $existing = DB::table('bonfire_reactions')
+            ->where('message_id', $messageId)
+            ->where('member_id', $member->id)
+            ->where('emoji', $emoji)
+            ->exists();
+
+        if ($existing) {
+            DB::table('bonfire_reactions')
+                ->where('message_id', $messageId)
+                ->where('member_id', $member->id)
+                ->where('emoji', $emoji)
+                ->delete();
+        } else {
+            DB::table('bonfire_reactions')->insert([
+                'message_id' => $messageId,
+                'member_id' => $member->id,
+                'emoji' => $emoji,
+                'created_at' => now(),
+            ]);
+        }
+
+        broadcast(new MessageEdited($message))->toOthers();
+        unset($this->messages, $this->reactionsByMessage);
+    }
+
+    /**
+     * Aggregate reactions for the messages currently in view.
+     *
+     * @return array<int, array<string, array{count: int, names: array<int, string>, mine: bool}>>
+     */
+    #[Computed]
+    public function reactionsByMessage(): array
+    {
+        $messageIds = $this->messages->pluck('id')->all();
+        if ($messageIds === []) {
+            return [];
+        }
+
+        $myMemberId = $this->currentMember()?->id;
+
+        $rows = DB::table('bonfire_reactions')
+            ->join('bonfire_members', 'bonfire_reactions.member_id', '=', 'bonfire_members.id')
+            ->whereIn('bonfire_reactions.message_id', $messageIds)
+            ->orderBy('bonfire_reactions.created_at')
+            ->get(['bonfire_reactions.message_id', 'bonfire_reactions.member_id', 'bonfire_reactions.emoji', 'bonfire_members.display_name']);
+
+        $grouped = [];
+        foreach ($rows as $r) {
+            $grouped[$r->message_id][$r->emoji] ??= ['count' => 0, 'names' => [], 'mine' => false];
+            $grouped[$r->message_id][$r->emoji]['count']++;
+            $grouped[$r->message_id][$r->emoji]['names'][] = $r->display_name;
+            if ($myMemberId !== null && (int) $r->member_id === $myMemberId) {
+                $grouped[$r->message_id][$r->emoji]['mine'] = true;
+            }
+        }
+
+        return $grouped;
+    }
+
     public function togglePin(int $messageId): void
     {
         $message = Message::query()->findOrFail($messageId);

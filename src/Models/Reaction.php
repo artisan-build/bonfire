@@ -9,7 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Override;
 
 /**
- * Represents an emoji reaction on a message.
+ * Represents an emoji reaction on a message. Composite key (message_id,
+ * member_id, emoji) lets a single member react with multiple emoji.
  */
 class Reaction extends Model
 {
@@ -22,6 +23,8 @@ class Reaction extends Model
     protected $primaryKey = null;
 
     protected $guarded = [];
+
+    protected $fillable = ['message_id', 'member_id', 'emoji', 'created_at'];
 
     /**
      * The message this reaction belongs to.
