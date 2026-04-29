@@ -647,12 +647,7 @@
                 </div>
 
                 @if (! $message->trashed())
-                    <div class="pointer-events-none absolute right-4 -top-3 z-10 hidden items-center gap-0.5
-                                rounded-md border border-zinc-200 bg-white p-0.5 shadow-sm
-                                group-hover:pointer-events-auto group-hover:flex
-                                dark:border-zinc-700 dark:bg-zinc-900">
-                        <div class="relative"
-                             x-data="{
+                    <div x-data="{
                                  open: false,
                                  baseCats: (window.BonfireEmojis || []),
                                  search: '',
@@ -691,10 +686,17 @@
                                      this.trackRecent(emoji);
                                      $wire.toggleReaction({{ $message->id }}, emoji);
                                      this.open = false;
+                                     this.search = '';
                                  },
                              }"
-                             @click.outside="open = false"
-                             @keydown.escape.window="open = false">
+                         @click.outside="open = false"
+                         @keydown.escape.window="open = false"
+                         :class="open && '!flex !pointer-events-auto'"
+                         class="pointer-events-none absolute right-4 -top-3 z-10 hidden items-center gap-0.5
+                                rounded-md border border-zinc-200 bg-white p-0.5 shadow-sm
+                                group-hover:pointer-events-auto group-hover:flex
+                                dark:border-zinc-700 dark:bg-zinc-900">
+                        <div class="relative">
                             <button type="button"
                                     title="Add reaction"
                                     @click="open = ! open"
