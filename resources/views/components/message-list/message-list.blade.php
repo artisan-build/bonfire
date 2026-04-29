@@ -652,7 +652,47 @@
                                 group-hover:pointer-events-auto group-hover:flex
                                 dark:border-zinc-700 dark:bg-zinc-900">
                         <div class="relative"
-                             x-data="{ open: false }"
+                             x-data="{
+                                 open: false,
+                                 baseCats: (window.BonfireEmojis || []),
+                                 search: '',
+                                 recentKey: 'bonfire.emoji.recent.{{ auth()->id() ?? 'guest' }}',
+                                 recent: (() => {
+                                     try { return JSON.parse(localStorage.getItem('bonfire.emoji.recent.{{ auth()->id() ?? 'guest' }}') || '[]'); }
+                                     catch (e) { return []; }
+                                 })(),
+                                 activeCat: '',
+                                 init() {
+                                     this.activeCat = this.recent.length > 0 ? 'recent' : (this.baseCats[0]?.key || 'smileys');
+                                 },
+                                 trackRecent(glyph) {
+                                     const idx = this.recent.indexOf(glyph);
+                                     if (idx !== -1) this.recent.splice(idx, 1);
+                                     this.recent.unshift(glyph);
+                                     this.recent = this.recent.slice(0, 24);
+                                     try { localStorage.setItem(this.recentKey, JSON.stringify(this.recent)); } catch (e) {}
+                                 },
+                                 get cats() {
+                                     if (this.recent.length === 0) return this.baseCats;
+                                     return [
+                                         { key: 'recent', label: 'Recently used', tab: '🕒', emojis: this.recent.map(c => ({ c, k: 'recent' })) },
+                                         ...this.baseCats,
+                                     ];
+                                 },
+                                 get visible() {
+                                     const q = this.search.trim().toLowerCase();
+                                     if (q === '') return this.cats.filter(c => c.key === this.activeCat);
+                                     return this.cats
+                                         .filter(c => c.key !== 'recent')
+                                         .map(cat => ({ ...cat, emojis: cat.emojis.filter(e => e.k.includes(q)) }))
+                                         .filter(cat => cat.emojis.length > 0);
+                                 },
+                                 pick(emoji) {
+                                     this.trackRecent(emoji);
+                                     $wire.toggleReaction({{ $message->id }}, emoji);
+                                     this.open = false;
+                                 },
+                             }"
                              @click.outside="open = false"
                              @keydown.escape.window="open = false">
                             <button type="button"
@@ -664,17 +704,54 @@
                             </button>
                             <div x-show="open"
                                  x-transition.opacity.duration.100ms
-                                 class="absolute right-0 top-full z-20 mt-1 grid w-fit grid-cols-[repeat(8,auto)] gap-1 rounded-md border border-zinc-200 bg-white p-1.5 shadow-lg
+                                 @click.stop
+                                 class="absolute right-0 top-full z-20 mt-1 flex w-80 flex-col overflow-hidden rounded-lg border border-zinc-200
+                                        bg-white shadow-lg
                                         dark:border-zinc-700 dark:bg-zinc-900"
                                  style="display: none;">
-                                @foreach (['👍','❤️','😂','🎉','🚀','🔥','👀','🙏','✅','❌','😢','🤔','💯','👏','😮','💙'] as $emoji)
-                                    <button type="button"
-                                            wire:click="toggleReaction({{ $message->id }}, '{{ $emoji }}')"
-                                            @click="open = false"
-                                            class="flex size-7 items-center justify-center rounded text-base transition
-                                                   hover:bg-zinc-100 hover:scale-125
-                                                   dark:hover:bg-zinc-800">{{ $emoji }}</button>
-                                @endforeach
+                                <div class="flex items-center gap-1 border-b border-zinc-200 p-2 dark:border-zinc-800">
+                                    <input type="search"
+                                           x-model="search"
+                                           placeholder="Search all emoji"
+                                           class="h-7 flex-1 rounded border border-zinc-200 bg-zinc-50 px-2 text-xs
+                                                  focus:border-zinc-400 focus:outline-none focus:ring-0
+                                                  dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100" />
+                                </div>
+                                <div x-show="! search"
+                                     class="flex items-center gap-0 border-b border-zinc-200 px-1 dark:border-zinc-800">
+                                    <template x-for="cat in cats" :key="cat.key">
+                                        <button type="button"
+                                                @click="activeCat = cat.key"
+                                                :class="activeCat === cat.key ? 'border-sky-500' : 'border-transparent opacity-60 hover:opacity-100'"
+                                                :title="cat.label"
+                                                class="flex h-8 flex-1 items-center justify-center border-b-2 text-base"
+                                                x-text="cat.tab"></button>
+                                    </template>
+                                </div>
+                                <div class="max-h-72 overflow-y-auto px-2 py-1">
+                                    <template x-for="cat in visible" :key="cat.key">
+                                        <div>
+                                            <div class="sticky top-0 bg-white px-1 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-500
+                                                        dark:bg-zinc-900 dark:text-zinc-400"
+                                                 x-text="cat.label"></div>
+                                            <div class="grid grid-cols-8 gap-0.5">
+                                                <template x-for="e in cat.emojis" :key="cat.key + e.c">
+                                                    <button type="button"
+                                                            @click="pick(e.c)"
+                                                            :title="e.k"
+                                                            class="size-8 rounded text-lg hover:bg-zinc-100
+                                                                   dark:hover:bg-zinc-800"
+                                                            x-text="e.c"></button>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <template x-if="search && visible.length === 0">
+                                        <div class="px-2 py-6 text-center text-xs text-zinc-500 dark:text-zinc-400">
+                                            No matches for "<span x-text="search"></span>"
+                                        </div>
+                                    </template>
+                                </div>
                             </div>
                         </div>
                         @feature('message_threads')
