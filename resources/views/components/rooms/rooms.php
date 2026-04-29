@@ -333,6 +333,17 @@ return new class extends Component
     /**
      * Open or create a direct message room with the given member.
      */
+    #[On('bonfire-open-dm')]
+    public function openDmFromEvent(array $payload): mixed
+    {
+        $memberId = (int) ($payload['memberId'] ?? 0);
+        if ($memberId <= 0) {
+            return null;
+        }
+
+        return $this->openDm($memberId);
+    }
+
     public function openDm(int $memberId): mixed
     {
         $current = $this->currentMember();
