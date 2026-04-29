@@ -954,7 +954,8 @@
 
     <form wire:submit="send"
           x-ref="form"
-          class="flex flex-col gap-2">
+          class="flex flex-col gap-1 rounded-xl border border-zinc-300 bg-white p-1 shadow-sm transition focus-within:border-zinc-400 focus-within:ring-1 focus-within:ring-zinc-200
+                 dark:border-zinc-700 dark:bg-zinc-900 dark:focus-within:border-zinc-600 dark:focus-within:ring-zinc-700">
 
         @php
             $reattachedAttachments = $this->pendingAttachmentIds === []
