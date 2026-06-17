@@ -55,6 +55,7 @@
         "test": "vendor/bin/pest",
         "test-coverage": "vendor/bin/pest --coverage",
         "lint": "vendor/bin/pint",
+        "lint:test": "vendor/bin/pint --test",
         "stan": "vendor/bin/phpstan analyse --memory-limit=-1",
         "ready": [
             "@composer lint",
