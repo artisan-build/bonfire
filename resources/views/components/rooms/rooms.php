@@ -332,6 +332,8 @@ return new class extends Component
 
     /**
      * Open or create a direct message room with the given member.
+     *
+     * @param  array<string, mixed>  $payload
      */
     #[On('bonfire-open-dm')]
     public function openDmFromEvent(array $payload): mixed

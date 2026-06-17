@@ -242,6 +242,7 @@ return new class extends Component
     #[Computed]
     public function reactionsByMessage(): array
     {
+        // @phpstan-ignore property.notFound (Livewire #[Computed] $messages property; Larastan does not resolve computed props on anonymous components)
         $messageIds = $this->messages->pluck('id')->all();
         if ($messageIds === []) {
             return [];

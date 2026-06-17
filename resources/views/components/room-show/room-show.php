@@ -110,7 +110,7 @@ return new class extends Component
             ->first();
 
         $durationSeconds = $presence
-            ? max(0, (int) $presence->joined_at->diffInSeconds(now()))
+            ? max(0, (int) Carbon::parse($presence->joined_at)->diffInSeconds(now()))
             : 0;
 
         VoiceRoomPresence::query()

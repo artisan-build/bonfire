@@ -30,6 +30,8 @@ use Override;
  * @property string|null $timezone
  * @property string|null $status_emoji
  * @property string|null $status_text
+ * @property string|null $status_game
+ * @property string|null $status_game_image
  * @property Carbon|null $status_expires_at
  * @property Carbon $created_at
  * @property Carbon $updated_at

@@ -128,6 +128,7 @@ return new class extends Component
             return collect();
         }
 
+        // @phpstan-ignore property.notFound (Livewire #[Computed] $rooms property; Larastan does not resolve computed props on anonymous components)
         $room = $this->rooms->firstWhere('id', $this->expandedRoomId);
 
         if ($room === null) {
