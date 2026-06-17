@@ -29,7 +29,7 @@ return new class extends Component
     {
         $this->room = $room;
 
-        abort_unless($this->canView(), 403);
+        $this->authorize('view', $room);
 
         $tracker = resolve(UnreadTracker::class);
         $previous = $tracker->lastReadAt($room, $this->currentMember());
@@ -342,20 +342,5 @@ return new class extends Component
         $this->room->removeMember($member);
 
         return $this->redirect(route('bonfire.index'), navigate: true);
-    }
-
-    protected function canView(): bool
-    {
-        $member = Bonfire::memberFor(auth()->user());
-
-        if (! $this->room->isPrivate()) {
-            return true;
-        }
-
-        if ($member === null) {
-            return false;
-        }
-
-        return $this->room->isAccessibleBy($member);
     }
 };

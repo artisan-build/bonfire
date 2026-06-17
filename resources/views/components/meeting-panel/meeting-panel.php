@@ -58,6 +58,8 @@ return new class extends Component
             return null;
         }
 
+        $this->authorize('useRealtime', $room);
+
         // If an active meeting already exists, reuse its timestamp — someone may be
         // racing with us. Otherwise record a new start.
         $cacheKey = "bonfire.meeting.{$roomId}.started_at";
@@ -120,6 +122,8 @@ return new class extends Component
             return;
         }
 
+        $this->authorize('useRealtime', $room);
+
         $cacheKey = "bonfire.meeting.{$roomId}.started_at";
         $startedAt = Cache::get($cacheKey);
         Cache::forget($cacheKey);
@@ -178,6 +182,8 @@ return new class extends Component
         if ($room === null || $target === null) {
             return;
         }
+
+        $this->authorize('useRealtime', $room);
 
         $slug = str_replace(' ', '-', $target->display_name);
         $body = sprintf(

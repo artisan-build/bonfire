@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use ArtisanBuild\Bonfire\Enums\BonfireRole;
 use ArtisanBuild\Bonfire\Events\MessagePosted;
 use ArtisanBuild\Bonfire\Facades\Bonfire;
 use ArtisanBuild\Bonfire\Models\Attachment;
@@ -158,11 +157,12 @@ return new class extends Component
             return;
         }
 
+        $this->authorize('post', $this->room);
+
         $member = Bonfire::memberFor(auth()->user());
         abort_unless($member !== null && $member->is_active, 403);
-        $this->ensureMemberMayPost($member);
 
-        $parent = $this->parentId !== null ? Message::query()->findOrFail($this->parentId) : null;
+        $parent = $this->resolveParent();
 
         // Staged poll (created via the Poll modal) — text body is whatever the
         // user typed alongside it.
@@ -404,15 +404,20 @@ return new class extends Component
     }
 
     /**
-     * Reject if the room is announcement-only and the member is not at least a moderator.
+     * Resolve the parent message for a reply, ensuring it belongs to this room.
+     * A reply may only target a parent in the same room the composer is bound to.
      */
-    private function ensureMemberMayPost(Member $member): void
+    private function resolveParent(): ?Message
     {
-        if (! $this->room->isAnnouncements()) {
-            return;
+        if ($this->parentId === null) {
+            return null;
         }
 
-        abort_unless($member->hasRoleAtLeast(BonfireRole::Moderator), 403);
+        $parent = Message::query()->findOrFail($this->parentId);
+
+        abort_unless((int) $parent->room_id === (int) $this->room->getKey(), 403);
+
+        return $parent;
     }
 
     public function addPollOption(): void
@@ -474,11 +479,12 @@ return new class extends Component
             return;
         }
 
+        $this->authorize('post', $this->room);
+
         $member = Bonfire::memberFor(auth()->user());
         abort_unless($member !== null && $member->is_active, 403);
-        $this->ensureMemberMayPost($member);
 
-        $parent = $this->parentId !== null ? Message::query()->findOrFail($this->parentId) : null;
+        $parent = $this->resolveParent();
 
         $bodyHtml = trim($this->body);
         $bodyPlain = trim(strip_tags(html_entity_decode($bodyHtml, ENT_QUOTES | ENT_HTML5)));

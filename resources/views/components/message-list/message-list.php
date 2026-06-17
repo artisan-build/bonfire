@@ -140,6 +140,15 @@ return new class extends Component
         return Bonfire::memberFor(auth()->user());
     }
 
+    /**
+     * Guard against acting on a message looked up by raw id that does not belong
+     * to the room this component is bound to.
+     */
+    private function messageInRoom(Message $message): bool
+    {
+        return (int) $message->room_id === (int) $this->room->getKey();
+    }
+
     public function canDelete(Message $message): bool
     {
         $member = $this->currentMember();
@@ -159,7 +168,8 @@ return new class extends Component
     {
         $message = Message::query()->findOrFail($messageId);
 
-        abort_unless($this->canDelete($message), 403);
+        abort_unless($this->messageInRoom($message), 403);
+        $this->authorize('delete', $message);
 
         $message->delete();
 
@@ -204,9 +214,11 @@ return new class extends Component
             ->whereKey($messageId)
             ->first();
 
-        if ($message === null) {
+        if ($message === null || ! $this->messageInRoom($message)) {
             return;
         }
+
+        $this->authorize('react', $message);
 
         $existing = DB::table('bonfire_reactions')
             ->where('message_id', $messageId)
@@ -271,7 +283,8 @@ return new class extends Component
     public function togglePin(int $messageId): void
     {
         $message = Message::query()->findOrFail($messageId);
-        abort_unless($this->canPin($message), 403);
+        abort_unless($this->messageInRoom($message), 403);
+        $this->authorize('pin', $message);
 
         if ($message->pinned_at === null) {
             $message->pinned_at = Carbon::now();
@@ -309,7 +322,8 @@ return new class extends Component
     {
         $message = Message::query()->findOrFail($messageId);
 
-        abort_unless($this->canEdit($message), 403);
+        abort_unless($this->messageInRoom($message), 403);
+        $this->authorize('update', $message);
 
         $clean = trim($body);
         if ($clean === '' || $clean === '<p></p>') {
@@ -367,13 +381,15 @@ return new class extends Component
 
         abort_unless($member !== null && $member->is_active, 403);
 
-        if ($target->isPrivate() && ! $target->hasMember($member)) {
-            abort(403);
-        }
+        // The forwarded message must be one this component's room actually shows;
+        // a member must not forward a message they hold only by raw id.
+        abort_unless($this->messageInRoom($source), 403);
 
-        if ($target->isArchived()) {
-            abort(403);
-        }
+        // And they must be able to read the source room in the first place.
+        $this->authorize('view', $this->room);
+
+        // The destination must be writable: not archived, and (if private) joined.
+        $this->authorize('forwardInto', $target);
 
         /** @var Room|null $sourceRoom */
         $sourceRoom = $source->room;
@@ -424,16 +440,14 @@ return new class extends Component
             return;
         }
 
-        if ((int) $message->room_id !== (int) $this->room->getKey()) {
+        if (! $this->messageInRoom($message)) {
             abort(403);
         }
+
+        $this->authorize('vote', $message);
 
         $member = $this->currentMember();
         abort_unless($member !== null && $member->is_active, 403);
-
-        if ($this->room->isPrivate() && ! $this->room->hasMember($member)) {
-            abort(403);
-        }
 
         $optionCount = count($message->poll['options'] ?? []);
         if ($optionIndex < 0 || $optionIndex >= $optionCount) {

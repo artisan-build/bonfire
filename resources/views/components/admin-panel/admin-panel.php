@@ -32,12 +32,7 @@ return new class extends Component
 
     public function mount(): void
     {
-        $member = Bonfire::memberFor(auth()->user());
-
-        abort_unless(
-            $member !== null && $member->is_active && $member->hasRoleAtLeast(BonfireRole::Admin),
-            403,
-        );
+        $this->authorize('administer', Member::class);
     }
 
     #[Computed]
@@ -60,7 +55,7 @@ return new class extends Component
 
     public function addMemberToRoom(int $roomId, int $memberId): void
     {
-        $this->ensureAdmin();
+        $this->authorize('manage', Room::class);
 
         $room = Room::query()->find($roomId);
         $member = Member::query()->find($memberId);
@@ -78,7 +73,7 @@ return new class extends Component
 
     public function removeMemberFromRoom(int $roomId, int $memberId): void
     {
-        $this->ensureAdmin();
+        $this->authorize('manage', Room::class);
 
         $room = Room::query()->find($roomId);
         $member = Member::query()->find($memberId);
@@ -91,16 +86,6 @@ return new class extends Component
 
         unset($this->rooms);
         $this->dispatch('bonfire:rooms-changed');
-    }
-
-    protected function ensureAdmin(): void
-    {
-        $actor = Bonfire::memberFor(auth()->user());
-
-        abort_unless(
-            $actor !== null && $actor->is_active && $actor->hasRoleAtLeast(BonfireRole::Admin),
-            403,
-        );
     }
 
     /**
@@ -161,6 +146,8 @@ return new class extends Component
 
     public function restoreRoom(int $roomId): void
     {
+        $this->authorize('manage', Room::class);
+
         $room = Room::onlyTrashed()->find($roomId);
 
         if ($room !== null) {
@@ -172,6 +159,8 @@ return new class extends Component
 
     public function forceDeleteRoom(int $roomId): void
     {
+        $this->authorize('manage', Room::class);
+
         $room = Room::onlyTrashed()->find($roomId);
 
         if ($room !== null) {
@@ -183,6 +172,8 @@ return new class extends Component
 
     public function deleteRoom(int $roomId): void
     {
+        $this->authorize('manage', Room::class);
+
         $room = Room::query()->find($roomId);
 
         if ($room !== null) {
@@ -210,6 +201,8 @@ return new class extends Component
         if ($name === '') {
             return;
         }
+
+        $this->authorize('create', Room::class);
 
         $member = Bonfire::memberFor(auth()->user());
         abort_unless($member !== null, 403);
@@ -240,6 +233,8 @@ return new class extends Component
 
     public function updateRoom(int $roomId, string $field, string|bool $value): void
     {
+        $this->authorize('manage', Room::class);
+
         $room = Room::query()->findOrFail($roomId);
 
         if (in_array($field, ['name', 'description'], true)) {
@@ -273,6 +268,7 @@ return new class extends Component
     public function changeRole(int $memberId, string $role): void
     {
         $target = Member::query()->findOrFail($memberId);
+        $this->authorize('changeRole', $target);
         Bonfire::promote($target, BonfireRole::from($role));
         unset($this->members);
     }
@@ -280,6 +276,7 @@ return new class extends Component
     public function toggleActive(int $memberId): void
     {
         $target = Member::query()->findOrFail($memberId);
+        $this->authorize('toggleActive', $target);
 
         if ($target->is_active) {
             Bonfire::deactivate($target);
@@ -292,8 +289,6 @@ return new class extends Component
 
     public function kickMember(int $memberId): void
     {
-        $this->ensureAdmin();
-
         $target = Member::query()
             ->find($memberId);
 
@@ -301,10 +296,7 @@ return new class extends Component
             return;
         }
 
-        $actor = Bonfire::memberFor(auth()->user());
-        if ($actor !== null && $actor->getKey() === $target->getKey()) {
-            return;
-        }
+        $this->authorize('kick', $target);
 
         $target->rooms()->detach();
         $target->delete();

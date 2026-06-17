@@ -42,7 +42,14 @@ return new class extends Component
         }
 
         $room = Room::query()->find($roomId);
-        if ($room === null || ! $room->hasMember($caller) || ! $room->hasMember($callee)) {
+        if ($room === null) {
+            abort(403);
+        }
+
+        $this->authorize('useRealtime', $room);
+
+        // The callee must also be a participant of the room before we ring them.
+        if (! $room->hasMember($callee)) {
             abort(403);
         }
 
@@ -92,6 +99,11 @@ return new class extends Component
             return;
         }
 
+        $room = Room::query()->find($session->room_id);
+        if ($room !== null) {
+            $this->authorize('useRealtime', $room);
+        }
+
         $peerMemberId = $session->caller_member_id === $caller->id
             ? $session->callee_member_id
             : $session->caller_member_id;
@@ -127,6 +139,11 @@ return new class extends Component
 
         if (! in_array($current->id, [$session->caller_member_id, $session->callee_member_id], true)) {
             return;
+        }
+
+        $room = Room::query()->find($session->room_id);
+        if ($room !== null) {
+            $this->authorize('useRealtime', $room);
         }
 
         $alreadyClosed = in_array($session->status, ['ended', 'declined', 'missed'], true);

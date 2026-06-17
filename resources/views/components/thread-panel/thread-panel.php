@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use ArtisanBuild\Bonfire\Facades\Bonfire;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\Room;
 use Illuminate\Database\Eloquent\Collection;
@@ -21,11 +20,7 @@ return new class extends Component
         $this->room = $room;
         $this->parentId = $parentId;
 
-        $member = Bonfire::memberFor(auth()->user());
-        abort_unless(
-            ! $this->room->isPrivate() || ($member !== null && $this->room->isAccessibleBy($member)),
-            403,
-        );
+        $this->authorize('view', $room);
     }
 
     #[Computed]
