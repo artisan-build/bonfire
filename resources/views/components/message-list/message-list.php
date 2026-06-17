@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use ArtisanBuild\Bonfire\Actions\MarkRoomRead;
 use ArtisanBuild\Bonfire\Enums\BonfireRole;
 use ArtisanBuild\Bonfire\Enums\RoomType;
 use ArtisanBuild\Bonfire\Events\MessageEdited;
@@ -12,7 +13,6 @@ use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\PollVote;
 use ArtisanBuild\Bonfire\Models\Room;
-use ArtisanBuild\Bonfire\Support\UnreadTracker;
 use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -81,7 +81,7 @@ return new class extends Component
         // unread when they navigate away.
         $member = Bonfire::memberFor(auth()->user());
         if ($member !== null) {
-            resolve(UnreadTracker::class)->markRead($this->room, $member);
+            resolve(MarkRoomRead::class)($this->room, $member);
             $this->dispatch('bonfire:read-state-changed', roomId: $this->room->id);
         }
 

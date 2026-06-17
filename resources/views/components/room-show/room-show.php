@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\VoiceRoomPresence;
+use ArtisanBuild\Bonfire\Actions\MarkRoomRead;
 use ArtisanBuild\Bonfire\Enums\BonfireRole;
 use ArtisanBuild\Bonfire\Facades\Bonfire;
 use ArtisanBuild\Bonfire\Models\Attachment;
@@ -35,7 +36,7 @@ return new class extends Component
         $previous = $tracker->lastReadAt($room, $this->currentMember());
         $this->previousReadAt = $previous?->toIso8601String();
 
-        $tracker->markRead($room, $this->currentMember());
+        resolve(MarkRoomRead::class)($room, $this->currentMember());
 
         $this->dispatch('bonfire:read-state-changed', roomId: $room->id);
     }
