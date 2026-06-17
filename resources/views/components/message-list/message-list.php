@@ -2,22 +2,23 @@
 
 declare(strict_types=1);
 
+use ArtisanBuild\Bonfire\Actions\DeleteMessage;
+use ArtisanBuild\Bonfire\Actions\EditMessage;
+use ArtisanBuild\Bonfire\Actions\ForwardMessage;
 use ArtisanBuild\Bonfire\Actions\MarkRoomRead;
+use ArtisanBuild\Bonfire\Actions\ReleaseDueScheduledMessages;
+use ArtisanBuild\Bonfire\Actions\TogglePin;
+use ArtisanBuild\Bonfire\Actions\TogglePollVote;
+use ArtisanBuild\Bonfire\Actions\ToggleReaction;
 use ArtisanBuild\Bonfire\Enums\BonfireRole;
 use ArtisanBuild\Bonfire\Enums\RoomType;
-use ArtisanBuild\Bonfire\Events\MessageEdited;
-use ArtisanBuild\Bonfire\Events\MessagePosted;
-use ArtisanBuild\Bonfire\Events\PollVoted;
 use ArtisanBuild\Bonfire\Facades\Bonfire;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
-use ArtisanBuild\Bonfire\Models\PollVote;
 use ArtisanBuild\Bonfire\Models\Room;
 use Illuminate\Pagination\CursorPaginator;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -74,7 +75,7 @@ return new class extends Component
     #[On('echo-presence:bonfire.room.{room.id},.message.posted')]
     public function onMessagePosted(): void
     {
-        $this->releaseDueScheduledMessages();
+        resolve(ReleaseDueScheduledMessages::class)(room: $this->room);
 
         // Keep the user's lastReadAt fresh while they're viewing — otherwise
         // messages that arrive during their visit leave the channel marked
@@ -92,29 +93,6 @@ return new class extends Component
     public function onScheduledReleased(): void
     {
         unset($this->messages);
-    }
-
-    /**
-     * Convert any scheduled messages in this room whose time has come into
-     * regular messages so they broadcast and appear in everyone's list.
-     */
-    private function releaseDueScheduledMessages(): void
-    {
-        $due = Message::query()
-            ->where('room_id', $this->room->getKey())
-            ->whereNotNull('scheduled_for')
-            ->where('scheduled_for', '<=', now())
-            ->get();
-
-        foreach ($due as $message) {
-            $scheduledAt = $message->scheduled_for;
-            $message->forceFill([
-                'scheduled_for' => null,
-                'created_at' => $scheduledAt ?? now(),
-            ])->save();
-
-            event(new MessagePosted($message));
-        }
     }
 
     #[On('echo-presence:bonfire.room.{room.id},.message.deleted')]
@@ -171,7 +149,7 @@ return new class extends Component
         abort_unless($this->messageInRoom($message), 403);
         $this->authorize('delete', $message);
 
-        $message->delete();
+        resolve(DeleteMessage::class)($message);
 
         unset($this->messages);
     }
@@ -220,28 +198,8 @@ return new class extends Component
 
         $this->authorize('react', $message);
 
-        $existing = DB::table('bonfire_reactions')
-            ->where('message_id', $messageId)
-            ->where('member_id', $member->id)
-            ->where('emoji', $emoji)
-            ->exists();
+        resolve(ToggleReaction::class)($member, $message, $emoji);
 
-        if ($existing) {
-            DB::table('bonfire_reactions')
-                ->where('message_id', $messageId)
-                ->where('member_id', $member->id)
-                ->where('emoji', $emoji)
-                ->delete();
-        } else {
-            DB::table('bonfire_reactions')->insert([
-                'message_id' => $messageId,
-                'member_id' => $member->id,
-                'emoji' => $emoji,
-                'created_at' => now(),
-            ]);
-        }
-
-        broadcast(new MessageEdited($message))->toOthers();
         unset($this->messages, $this->reactionsByMessage);
     }
 
@@ -286,16 +244,10 @@ return new class extends Component
         abort_unless($this->messageInRoom($message), 403);
         $this->authorize('pin', $message);
 
-        if ($message->pinned_at === null) {
-            $message->pinned_at = Carbon::now();
-            $message->pinned_by_member_id = $this->currentMember()?->id;
-        } else {
-            $message->pinned_at = null;
-            $message->pinned_by_member_id = null;
-        }
-        $message->save();
+        $member = $this->currentMember();
+        abort_unless($member !== null, 403);
 
-        broadcast(new MessageEdited($message))->toOthers();
+        resolve(TogglePin::class)($member, $message);
 
         unset($this->messages);
         $this->dispatch('bonfire:pins-changed', roomId: $this->room->id);
@@ -330,10 +282,7 @@ return new class extends Component
             return; // no-op on empty edit; user can delete instead
         }
 
-        $message->body = $clean;
-        $message->save();
-
-        broadcast(new MessageEdited($message))->toOthers();
+        resolve(EditMessage::class)($message, $clean);
 
         unset($this->messages);
     }
@@ -391,42 +340,7 @@ return new class extends Component
         // The destination must be writable: not archived, and (if private) joined.
         $this->authorize('forwardInto', $target);
 
-        /** @var Room|null $sourceRoom */
-        $sourceRoom = $source->room;
-
-        /** @var Member|null $sourceMember */
-        $sourceMember = $source->member;
-
-        // Normalize quoted body: strip tags, decode entities, trim, cap to 300 chars.
-        $plainBody = trim(html_entity_decode(strip_tags((string) $source->body), ENT_QUOTES | ENT_HTML5));
-        $quotedBody = Str::limit($plainBody, 300);
-
-        $noteClean = Str::limit(trim($note), 2000);
-        $author = e($sourceMember->display_name ?? 'Unknown');
-        $authorAvatar = e($sourceMember->avatar_url ?? 'https://ui-avatars.com/api/?name='.urlencode($sourceMember->display_name ?? '?'));
-        $roomName = e($sourceRoom->name ?? 'unknown');
-        $jumpUrl = $sourceRoom ? route('bonfire.room.show', $sourceRoom).'#m-'.$source->id : '#';
-        $timestamp = $source->created_at->format('M j, g:i A');
-
-        $html = '';
-        if ($noteClean !== '') {
-            $html .= '<p>'.e($noteClean).'</p>';
-        }
-        $html .= '<blockquote data-bonfire-forward="'.$source->id.'" class="bonfire-forward">';
-        $html .= '<div class="bonfire-forward-head">';
-        $html .= '<img src="'.$authorAvatar.'" alt="" class="bonfire-forward-avatar">';
-        $html .= '<span class="bonfire-forward-author">'.$author.'</span>';
-        $html .= '<span class="bonfire-forward-meta">in #'.$roomName;
-        if ($timestamp !== '') {
-            $html .= ' · '.e($timestamp);
-        }
-        $html .= '</span>';
-        $html .= '</div>';
-        $html .= '<div class="bonfire-forward-body">'.nl2br(e($quotedBody)).'</div>';
-        $html .= '<div class="bonfire-forward-foot"><a href="'.e($jumpUrl).'" data-bonfire-forward-jump>View original →</a></div>';
-        $html .= '</blockquote>';
-
-        Bonfire::postAs($member, $target, $html);
+        resolve(ForwardMessage::class)($member, $source, $target, $note);
 
         $this->dispatch('bonfire:rooms-changed');
         $this->dispatch('bonfire-forwarded', targetRoomId: $target->id, targetRoomSlug: $target->slug);
@@ -454,21 +368,7 @@ return new class extends Component
             return;
         }
 
-        $existing = PollVote::query()
-            ->where('message_id', $message->id)
-            ->where('member_id', $member->id)
-            ->first();
-
-        if ($existing !== null && (int) $existing->option_index === $optionIndex) {
-            $existing->delete();
-        } else {
-            PollVote::query()->updateOrCreate(
-                ['message_id' => $message->id, 'member_id' => $member->id],
-                ['option_index' => $optionIndex, 'created_at' => now()],
-            );
-        }
-
-        broadcast(new PollVoted($message->id, (int) $message->room_id))->toOthers();
+        resolve(TogglePollVote::class)($member, $message, $optionIndex);
 
         unset($this->messages);
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\VoiceRoomPresence;
 use ArtisanBuild\Bonfire\Actions\MarkRoomRead;
+use ArtisanBuild\Bonfire\Actions\ToggleRoomStar;
 use ArtisanBuild\Bonfire\Enums\BonfireRole;
 use ArtisanBuild\Bonfire\Facades\Bonfire;
 use ArtisanBuild\Bonfire\Models\Attachment;
@@ -306,23 +307,7 @@ return new class extends Component
             return;
         }
 
-        $exists = DB::table('bonfire_starred_rooms')
-            ->where('member_id', $member->id)
-            ->where('room_id', $this->room->id)
-            ->exists();
-
-        if ($exists) {
-            DB::table('bonfire_starred_rooms')
-                ->where('member_id', $member->id)
-                ->where('room_id', $this->room->id)
-                ->delete();
-        } else {
-            DB::table('bonfire_starred_rooms')->insert([
-                'member_id' => $member->id,
-                'room_id' => $this->room->id,
-                'created_at' => now(),
-            ]);
-        }
+        resolve(ToggleRoomStar::class)($member, $this->room);
 
         unset($this->isStarred);
 
