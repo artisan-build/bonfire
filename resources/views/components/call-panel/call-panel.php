@@ -3,15 +3,16 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use ArtisanBuild\Bonfire\Actions\EndCall;
+use ArtisanBuild\Bonfire\Actions\InitiateCall;
+use ArtisanBuild\Bonfire\Actions\MarkCallActive;
 use ArtisanBuild\Bonfire\Events\CallEnded;
 use ArtisanBuild\Bonfire\Events\CallInitiated;
 use ArtisanBuild\Bonfire\Events\CallSignal;
 use ArtisanBuild\Bonfire\Facades\Bonfire;
 use ArtisanBuild\Bonfire\Models\CallSession;
 use ArtisanBuild\Bonfire\Models\Member;
-use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\Room;
-use Carbon\CarbonInterface;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -58,12 +59,7 @@ return new class extends Component
             return null;
         }
 
-        $session = CallSession::query()->create([
-            'room_id' => $room->id,
-            'caller_member_id' => $caller->id,
-            'callee_member_id' => $callee->id,
-            'status' => 'ringing',
-        ]);
+        $session = app(InitiateCall::class)($room, $caller, $callee);
 
         broadcast(new CallInitiated(
             $session,
@@ -119,7 +115,7 @@ return new class extends Component
         }
 
         if ($kind === 'answer' && $session->status === 'ringing') {
-            $session->update(['status' => 'active', 'started_at' => now()]);
+            app(MarkCallActive::class)($session);
         }
 
         broadcast(new CallSignal($session->id, $targetUserId, $kind, $payload));
@@ -146,25 +142,7 @@ return new class extends Component
             $this->authorize('useRealtime', $room);
         }
 
-        $alreadyClosed = in_array($session->status, ['ended', 'declined', 'missed'], true);
-
-        if (! $alreadyClosed) {
-            // Decide the recorded status based on who ended and when.
-            $status = match (true) {
-                $reason === 'declined' => 'declined',
-                $reason === 'missed' => 'missed',
-                // Caller cancelled while still ringing → callee sees it as missed.
-                $reason === 'canceled' && $session->status === 'ringing' && $session->caller_member_id === $current->id => 'missed',
-                default => 'ended',
-            };
-
-            $session->update([
-                'status' => $status,
-                'ended_at' => now(),
-            ]);
-
-            $this->postCallSummary($session->fresh());
-        }
+        app(EndCall::class)($session, $current, $reason);
 
         $peerMemberId = $session->caller_member_id === $current->id
             ? $session->callee_member_id
@@ -179,42 +157,6 @@ return new class extends Component
         broadcast(new CallEnded($session->id, $targetUserId, $reason));
 
         $this->dispatch('bonfire:call-state-changed');
-    }
-
-    private function postCallSummary(CallSession $session): void
-    {
-        [$icon, $body] = match ($session->status) {
-            'missed' => ['📞', '**Missed call** from {caller}'],
-            'declined' => ['📵', 'Call declined'],
-            'ended' => ['📞', 'Call ended'.($session->started_at
-                ? ' · '.$this->formatDuration($session->started_at, $session->ended_at)
-                : ''),
-            ],
-            default => [null, null],
-        };
-
-        if ($body === null) {
-            return;
-        }
-
-        $caller = Member::query()->find($session->caller_member_id);
-        $body = str_replace('{caller}', $caller->display_name ?? 'Unknown', $body);
-
-        Message::create([
-            'room_id' => $session->room_id,
-            'member_id' => $session->caller_member_id,
-            'body' => $icon.' '.$body,
-        ]);
-    }
-
-    private function formatDuration(CarbonInterface $start, ?CarbonInterface $end): string
-    {
-        $endTs = ($end ?? now())->getTimestamp();
-        $seconds = max(0, $endTs - $start->getTimestamp());
-        $m = intdiv($seconds, 60);
-        $s = $seconds % 60;
-
-        return sprintf('%d:%02d', $m, $s);
     }
 
     private function resolveUserId(Member $member): ?int
