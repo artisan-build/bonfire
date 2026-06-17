@@ -8,15 +8,22 @@ use ArtisanBuild\Bonfire\Models\PollVote;
 use ArtisanBuild\Bonfire\Tests\Fixtures\TestUser;
 use Livewire\Livewire;
 
-it('creates a poll from a /poll command', function (): void {
+/**
+ * Poll creation flows through the Poll modal — createPoll()/stagePoll() on the
+ * message-composer component — not slash-command parsing. The /poll text
+ * shortcut was intentionally removed (commit 07e0cd2) because of debounce,
+ * Tiptap-sync, and toast issues. See the "restore /poll slash-command" issue.
+ */
+it('creates a poll via createPoll', function (): void {
     $room = aRoom();
     $user = TestUser::query()->create(['name' => 'Ada']);
     Bonfire::ensureMember($user, 'Ada');
     auth()->setUser($user);
 
     Livewire::test('bonfire::message-composer', ['room' => $room])
-        ->set('body', '/poll Lunch? | Pizza | Tacos | Salad')
-        ->call('send');
+        ->set('pollQuestion', 'Lunch?')
+        ->set('pollOptions', ['Pizza', 'Tacos', 'Salad'])
+        ->call('createPoll');
 
     $message = Message::query()->first();
 
@@ -27,54 +34,62 @@ it('creates a poll from a /poll command', function (): void {
         ->and($message->poll['options'])->toBe(['Pizza', 'Tacos', 'Salad']);
 });
 
-it('creates a poll from HTML-wrapped body (Tiptap output)', function (): void {
+it('keeps a typed text body alongside the poll', function (): void {
     $room = aRoom();
     $user = TestUser::query()->create(['name' => 'Ada']);
     Bonfire::ensureMember($user, 'Ada');
     auth()->setUser($user);
 
     Livewire::test('bonfire::message-composer', ['room' => $room])
-        ->set('body', '<p>/poll Lunch? | Pizza | Tacos | Salad</p>')
-        ->call('send');
+        ->set('body', '<p>Vote now!</p>')
+        ->set('pollQuestion', 'Lunch?')
+        ->set('pollOptions', ['Pizza', 'Tacos', 'Salad'])
+        ->call('createPoll');
 
     $message = Message::query()->first();
 
     expect($message)->not->toBeNull()
         ->and($message->isPoll())->toBeTrue()
+        ->and($message->body)->toBe('<p>Vote now!</p>')
         ->and($message->poll['question'])->toBe('Lunch?');
 });
 
-it('creates a poll when question contains HTML entities', function (): void {
+it('stages a poll then sends it via send()', function (): void {
     $room = aRoom();
     $user = TestUser::query()->create(['name' => 'Ada']);
     Bonfire::ensureMember($user, 'Ada');
     auth()->setUser($user);
 
-    Livewire::test('bonfire::message-composer', ['room' => $room])
-        ->set('body', '<p>/poll What&#39;s for lunch? | Pizza | Tacos | Salad</p>')
-        ->call('send');
+    $composer = Livewire::test('bonfire::message-composer', ['room' => $room])
+        ->set('pollQuestion', 'Lunch?')
+        ->set('pollOptions', ['Pizza', 'Tacos', 'Salad'])
+        ->call('stagePoll');
+
+    expect($composer->get('pendingPoll'))->not->toBeNull();
+
+    $composer->call('send');
 
     $message = Message::query()->first();
 
     expect($message)->not->toBeNull()
         ->and($message->isPoll())->toBeTrue()
-        ->and($message->poll['question'])->toBe("What's for lunch?");
+        ->and($message->poll['question'])->toBe('Lunch?')
+        ->and($message->poll['options'])->toBe(['Pizza', 'Tacos', 'Salad']);
 });
 
-it('ignores /poll without enough options', function (): void {
+it('rejects a poll with fewer than two non-empty options', function (): void {
     $room = aRoom();
     $user = TestUser::query()->create(['name' => 'Ada']);
     Bonfire::ensureMember($user, 'Ada');
     auth()->setUser($user);
 
     Livewire::test('bonfire::message-composer', ['room' => $room])
-        ->set('body', '/poll Only a question | Single option')
-        ->call('send');
+        ->set('pollQuestion', 'Only a question')
+        ->set('pollOptions', ['Single option', ''])
+        ->call('createPoll')
+        ->assertHasErrors('pollOptions');
 
-    $message = Message::query()->first();
-
-    expect($message)->not->toBeNull()
-        ->and($message->isPoll())->toBeFalse();
+    expect(Message::query()->count())->toBe(0);
 });
 
 it('records a vote via togglePollVote', function (): void {
@@ -84,8 +99,9 @@ it('records a vote via togglePollVote', function (): void {
     auth()->setUser($user);
 
     Livewire::test('bonfire::message-composer', ['room' => $room])
-        ->set('body', '/poll Lunch? | Pizza | Tacos | Salad')
-        ->call('send');
+        ->set('pollQuestion', 'Lunch?')
+        ->set('pollOptions', ['Pizza', 'Tacos', 'Salad'])
+        ->call('createPoll');
 
     $poll = Message::query()->first();
 
@@ -104,8 +120,9 @@ it('switches a vote to a different option', function (): void {
     auth()->setUser($user);
 
     Livewire::test('bonfire::message-composer', ['room' => $room])
-        ->set('body', '/poll Lunch? | Pizza | Tacos | Salad')
-        ->call('send');
+        ->set('pollQuestion', 'Lunch?')
+        ->set('pollOptions', ['Pizza', 'Tacos', 'Salad'])
+        ->call('createPoll');
 
     $poll = Message::query()->first();
 
@@ -124,8 +141,9 @@ it('removes a vote when toggled on the same option', function (): void {
     auth()->setUser($user);
 
     Livewire::test('bonfire::message-composer', ['room' => $room])
-        ->set('body', '/poll Lunch? | Pizza | Tacos | Salad')
-        ->call('send');
+        ->set('pollQuestion', 'Lunch?')
+        ->set('pollOptions', ['Pizza', 'Tacos', 'Salad'])
+        ->call('createPoll');
 
     $poll = Message::query()->first();
 
