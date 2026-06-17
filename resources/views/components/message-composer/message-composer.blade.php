@@ -1086,8 +1086,8 @@
 
         @php
             $isGamingTheme = false;
-            if (class_exists('App\\Support\\WorkspaceManager')) {
-                $isGamingTheme = app('App\\Support\\WorkspaceManager')->current()?->theme === 'gaming';
+            if (class_exists('App\\Models\\Community')) {
+                $isGamingTheme = \App\Models\Community::current()?->theme === 'gaming';
             }
             $editorToolbar = $isGamingTheme
                 ? 'bold italic strike | link'

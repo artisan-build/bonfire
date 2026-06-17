@@ -19,7 +19,6 @@ use Illuminate\Support\Facades\Facade;
  * @method static Member promote(Member $member, BonfireRole $role)
  * @method static Member deactivate(Member $member)
  * @method static Member reactivate(Member $member)
- * @method static int|null tenantId()
  */
 class Bonfire extends Facade
 {

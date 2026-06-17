@@ -6,9 +6,12 @@ namespace ArtisanBuild\Bonfire\Jobs;
 
 use ArtisanBuild\Bonfire\Models\LinkPreview;
 use ArtisanBuild\Bonfire\Models\Message;
+use ArtisanBuild\Bonfire\Support\SafeUrlGuard;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -39,7 +42,7 @@ class FetchLinkPreview implements ShouldQueue
         return [10, 60];
     }
 
-    public function handle(): void
+    public function handle(SafeUrlGuard $guard): void
     {
         $message = Message::query()->find($this->messageId);
 
@@ -49,9 +52,7 @@ class FetchLinkPreview implements ShouldQueue
 
         $timeout = (int) config('bonfire.link_preview_timeout_seconds', 5);
 
-        $response = Http::timeout($timeout)
-            ->withHeaders(['User-Agent' => 'BonfireLinkPreview/1.0'])
-            ->get($this->url);
+        $response = $this->fetchSafely($this->url, $guard, $timeout);
 
         if (! $response->successful()) {
             $response->throw();
@@ -71,6 +72,66 @@ class FetchLinkPreview implements ShouldQueue
                 'failed' => false,
             ],
         );
+    }
+
+    /**
+     * Fetch the URL with SSRF protection: validate every URL before the request,
+     * disable the HTTP client's automatic redirects, and manually follow a
+     * bounded number of redirects so each hop is re-validated against the guard.
+     */
+    private function fetchSafely(string $url, SafeUrlGuard $guard, int $timeout): Response
+    {
+        $maxRedirects = 5;
+
+        for ($hop = 0; $hop <= $maxRedirects; $hop++) {
+            if (! $guard->isSafe($url)) {
+                throw new RuntimeException('Refusing to fetch unsafe or non-public URL for link preview.');
+            }
+
+            $response = Http::timeout($timeout)
+                ->withHeaders(['User-Agent' => 'BonfireLinkPreview/1.0'])
+                ->withOptions(['allow_redirects' => false])
+                ->get($url);
+
+            if (! $response->redirect()) {
+                return $response;
+            }
+
+            $location = $response->header('Location');
+
+            if ($location === '') {
+                return $response;
+            }
+
+            // Resolve relative redirects against the current absolute URL.
+            $url = $this->resolveRedirectTarget($url, $location);
+        }
+
+        throw new RuntimeException('Too many redirects while fetching link preview.');
+    }
+
+    private function resolveRedirectTarget(string $base, string $location): string
+    {
+        if (parse_url($location, PHP_URL_SCHEME) !== null) {
+            return $location;
+        }
+
+        $parts = parse_url($base);
+
+        if ($parts === false || ! isset($parts['scheme'], $parts['host'])) {
+            return $location;
+        }
+
+        $origin = $parts['scheme'].'://'.$parts['host'].(isset($parts['port']) ? ':'.$parts['port'] : '');
+
+        if (str_starts_with($location, '/')) {
+            return $origin.$location;
+        }
+
+        $path = $parts['path'] ?? '/';
+        $dir = substr($path, 0, (int) strrpos($path, '/') + 1);
+
+        return $origin.$dir.$location;
     }
 
     public function failed(Throwable $exception): void

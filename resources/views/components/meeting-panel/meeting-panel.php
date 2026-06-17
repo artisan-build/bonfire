@@ -29,10 +29,8 @@ return new class extends Component
         }
 
         $me = $this->currentMember();
-        $tenantId = Bonfire::tenantId();
 
         return Member::query()
-            ->where('tenant_id', $tenantId)
             ->where('is_active', true)
             ->when($me !== null, fn ($q) => $q->where('id', '!=', $me->id))
             ->when($room->isPrivate(), fn ($q) => $q->whereHas('rooms', fn ($r) => $r->where('bonfire_rooms.id', $room->id)))
@@ -70,7 +68,6 @@ return new class extends Component
         }
 
         Message::create([
-            'tenant_id' => $room->tenant_id,
             'room_id' => $room->id,
             'member_id' => $caller->id,
             'body' => sprintf(
@@ -156,7 +153,6 @@ return new class extends Component
         }
 
         Message::create([
-            'tenant_id' => $room->tenant_id,
             'room_id' => $room->id,
             'member_id' => $caller->id,
             'body' => sprintf(
@@ -192,7 +188,6 @@ return new class extends Component
         );
 
         Message::create([
-            'tenant_id' => $room->tenant_id,
             'room_id' => $room->id,
             'member_id' => $caller->id,
             'body' => $body,

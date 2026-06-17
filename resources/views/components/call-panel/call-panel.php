@@ -52,7 +52,6 @@ return new class extends Component
         }
 
         $session = CallSession::query()->create([
-            'tenant_id' => Bonfire::tenantId(),
             'room_id' => $room->id,
             'caller_member_id' => $caller->id,
             'callee_member_id' => $callee->id,
@@ -185,7 +184,6 @@ return new class extends Component
         $body = str_replace('{caller}', $caller->display_name ?? 'Unknown', $body);
 
         Message::create([
-            'tenant_id' => $session->tenant_id,
             'room_id' => $session->room_id,
             'member_id' => $session->caller_member_id,
             'body' => $icon.' '.$body,

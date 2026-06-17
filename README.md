@@ -58,7 +58,7 @@ php artisan bonfire:create-room General --description="General discussion"
 - **Search** - Search messages within a channel
 - **Admin panel** - Manage rooms, members, and roles
 - **Roles** - Member, Moderator, and Admin with hierarchical permissions
-- **Multi-tenancy** - Optional tenant scoping for all models
+- **Single-tenant** - One community per deployment (built-for-cloud); no per-row tenant scoping
 
 ## Configuration
 
@@ -77,7 +77,6 @@ Key options in `config/bonfire.php`:
 | `disk` | `'public'` | Storage disk for file attachments |
 | `max_attachment_size_kb` | `10240` | Maximum upload size in KB |
 | `allowed_attachment_types` | `['image/*', 'application/pdf']` | Accepted MIME types |
-| `tenant_id` | `fn () => null` | Callable returning the current tenant ID |
 | `notification_channels` | `['database']` | Laravel notification channels for mentions |
 | `link_preview_enabled` | `true` | Fetch link previews for posted URLs |
 | `resolve_member` | Uses `Bonfire::memberFor()` | Callable returning the current `Member` |

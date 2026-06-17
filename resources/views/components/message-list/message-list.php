@@ -201,7 +201,6 @@ return new class extends Component
         }
 
         $message = Message::query()
-            ->where('tenant_id', Bonfire::tenantId())
             ->whereKey($messageId)
             ->first();
 
@@ -348,7 +347,6 @@ return new class extends Component
             ->pluck('room_id');
 
         return Room::query()
-            ->where('tenant_id', Bonfire::tenantId())
             ->whereNull('deleted_at')
             ->whereRaw('(type & ?) = 0', [RoomType::Archived->value])
             ->where(function ($q) use ($memberRoomIds): void {

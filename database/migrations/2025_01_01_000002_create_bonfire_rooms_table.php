@@ -12,7 +12,6 @@ return new class extends Migration
     {
         Schema::create('bonfire_rooms', function (Blueprint $table): void {
             $table->id();
-            $table->unsignedBigInteger('tenant_id')->nullable();
             $table->string('name');
             $table->string('slug');
             $table->text('description')->nullable();
@@ -20,8 +19,7 @@ return new class extends Migration
             $table->unsignedBigInteger('created_by');
             $table->timestamps();
 
-            $table->unique(['tenant_id', 'slug']);
-            $table->index('tenant_id');
+            $table->unique('slug');
             $table->foreign('created_by')->references('id')->on('bonfire_members')->cascadeOnDelete();
         });
     }

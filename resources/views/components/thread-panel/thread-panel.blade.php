@@ -69,7 +69,7 @@
                     @elseif (preg_match('/<\\w+[^>]*>/', (string) $parent->body) === 1)
                         {!! app(\ArtisanBuild\Bonfire\Support\MarkdownRenderer::class)->highlightMentions($parent->body) !!}
                     @else
-                        {!! app(\ArtisanBuild\Bonfire\Support\MarkdownRenderer::class)->render($parent->body, $parent->tenant_id) !!}
+                        {!! app(\ArtisanBuild\Bonfire\Support\MarkdownRenderer::class)->render($parent->body) !!}
                     @endif
                 </div>
             </div>
@@ -130,7 +130,7 @@
                             @if (preg_match('/<\\w+[^>]*>/', (string) $reply->body) === 1)
                                 {!! app(\ArtisanBuild\Bonfire\Support\MarkdownRenderer::class)->highlightMentions($reply->body) !!}
                             @else
-                                {!! app(\ArtisanBuild\Bonfire\Support\MarkdownRenderer::class)->render($reply->body, $reply->tenant_id) !!}
+                                {!! app(\ArtisanBuild\Bonfire\Support\MarkdownRenderer::class)->render($reply->body) !!}
                             @endif
                         </div>
                     </div>

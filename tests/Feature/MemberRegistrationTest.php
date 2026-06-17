@@ -71,22 +71,14 @@ it('returns null when no member exists for the host model', function (): void {
         ->and(Bonfire::memberFor(null))->toBeNull();
 });
 
-it('scopes members by configured tenant id', function (): void {
+it('keeps a single member per host model (single-tenant)', function (): void {
     $user = TestUser::query()->create(['name' => 'Ada']);
 
-    config()->set('bonfire.tenant_id', fn () => 1);
-    Bonfire::ensureMember($user, 'Ada Tenant 1');
+    Bonfire::ensureMember($user, 'Ada First');
+    Bonfire::ensureMember($user, 'Ada Second');
 
-    config()->set('bonfire.tenant_id', fn () => 2);
-    Bonfire::ensureMember($user, 'Ada Tenant 2');
-
-    expect(Member::query()->count())->toBe(2);
-
-    config()->set('bonfire.tenant_id', fn () => 1);
-    expect(Bonfire::memberFor($user)->display_name)->toBe('Ada Tenant 1');
-
-    config()->set('bonfire.tenant_id', fn () => 2);
-    expect(Bonfire::memberFor($user)->display_name)->toBe('Ada Tenant 2');
+    expect(Member::query()->count())->toBe(1)
+        ->and(Bonfire::memberFor($user)->display_name)->toBe('Ada Second');
 });
 
 it('syncs the member via the observer', function (): void {

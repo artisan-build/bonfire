@@ -390,7 +390,7 @@
                                             @if ($bodyLooksLikeHtml)
                                                 {!! app(\ArtisanBuild\Bonfire\Support\MarkdownRenderer::class)->highlightMentions($message->body) !!}
                                             @else
-                                                {!! app(\ArtisanBuild\Bonfire\Support\MarkdownRenderer::class)->render($message->body, $message->tenant_id) !!}
+                                                {!! app(\ArtisanBuild\Bonfire\Support\MarkdownRenderer::class)->render($message->body) !!}
                                             @endif
                                         </div>
                                     @endif
@@ -469,7 +469,7 @@
                                 @elseif ($bodyLooksLikeHtml)
                                     {!! app(\ArtisanBuild\Bonfire\Support\MarkdownRenderer::class)->highlightMentions($message->body) !!}
                                 @else
-                                    {!! app(\ArtisanBuild\Bonfire\Support\MarkdownRenderer::class)->render($message->body, $message->tenant_id) !!}
+                                    {!! app(\ArtisanBuild\Bonfire\Support\MarkdownRenderer::class)->render($message->body) !!}
                                 @endif
                                 @if ($wasEdited && ! $message->isPoll())
                                     <span class="ml-1 text-[11px] italic text-zinc-400 dark:text-zinc-500"

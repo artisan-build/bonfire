@@ -139,7 +139,6 @@ return new class extends Component
         $body = '<p><em>🎧 Voice chat ended · '.htmlspecialchars($duration, ENT_QUOTES | ENT_HTML5).'</em></p>';
 
         Message::create([
-            'tenant_id' => $this->room->tenant_id,
             'room_id' => $this->room->id,
             'member_id' => $member->id,
             'body' => $body,

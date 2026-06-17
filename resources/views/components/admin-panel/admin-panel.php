@@ -62,8 +62,8 @@ return new class extends Component
     {
         $this->ensureAdmin();
 
-        $room = Room::query()->where('tenant_id', Bonfire::tenantId())->find($roomId);
-        $member = Member::query()->where('tenant_id', Bonfire::tenantId())->find($memberId);
+        $room = Room::query()->find($roomId);
+        $member = Member::query()->find($memberId);
 
         if ($room === null || $member === null) {
             return;
@@ -80,8 +80,8 @@ return new class extends Component
     {
         $this->ensureAdmin();
 
-        $room = Room::query()->where('tenant_id', Bonfire::tenantId())->find($roomId);
-        $member = Member::query()->where('tenant_id', Bonfire::tenantId())->find($memberId);
+        $room = Room::query()->find($roomId);
+        $member = Member::query()->find($memberId);
 
         if ($room === null || $member === null) {
             return;
@@ -110,7 +110,6 @@ return new class extends Component
     public function rooms(): Collection
     {
         return Room::query()
-            ->where('tenant_id', Bonfire::tenantId())
             ->with(['members' => function ($query): void {
                 $query->orderBy('display_name');
             }])
@@ -138,7 +137,6 @@ return new class extends Component
         $assignedIds = $room->members->pluck('id')->all();
 
         $query = Member::query()
-            ->where('tenant_id', Bonfire::tenantId())
             ->whereNotIn('id', $assignedIds)
             ->orderBy('display_name');
 
@@ -157,14 +155,13 @@ return new class extends Component
     public function deletedRooms(): Collection
     {
         return Room::onlyTrashed()
-            ->where('tenant_id', Bonfire::tenantId())
             ->orderByDesc('deleted_at')
             ->get();
     }
 
     public function restoreRoom(int $roomId): void
     {
-        $room = Room::onlyTrashed()->where('tenant_id', Bonfire::tenantId())->find($roomId);
+        $room = Room::onlyTrashed()->find($roomId);
 
         if ($room !== null) {
             $room->restore();
@@ -175,7 +172,7 @@ return new class extends Component
 
     public function forceDeleteRoom(int $roomId): void
     {
-        $room = Room::onlyTrashed()->where('tenant_id', Bonfire::tenantId())->find($roomId);
+        $room = Room::onlyTrashed()->find($roomId);
 
         if ($room !== null) {
             $room->forceDelete();
@@ -186,7 +183,7 @@ return new class extends Component
 
     public function deleteRoom(int $roomId): void
     {
-        $room = Room::query()->where('tenant_id', Bonfire::tenantId())->find($roomId);
+        $room = Room::query()->find($roomId);
 
         if ($room !== null) {
             $room->delete();
@@ -202,7 +199,6 @@ return new class extends Component
     public function members(): Collection
     {
         return Member::query()
-            ->where('tenant_id', Bonfire::tenantId())
             ->orderBy('display_name')
             ->get();
     }
@@ -230,7 +226,6 @@ return new class extends Component
         }
 
         Room::query()->create([
-            'tenant_id' => Bonfire::tenantId(),
             'name' => $name,
             'slug' => Str::slug($name).'-'.Str::lower(Str::random(6)),
             'description' => trim($this->newDescription) ?: null,
@@ -300,7 +295,6 @@ return new class extends Component
         $this->ensureAdmin();
 
         $target = Member::query()
-            ->where('tenant_id', Bonfire::tenantId())
             ->find($memberId);
 
         if ($target === null) {

@@ -112,11 +112,9 @@ return new class extends Component
     #[Computed]
     public function visibleRooms(): Collection
     {
-        $tenantId = Bonfire::tenantId();
         $member = $this->currentMember();
 
         $query = Room::query()
-            ->where(fn ($q) => $q->where('tenant_id', $tenantId))
             ->withMax('messages as last_message_at', 'created_at')
             ->orderByRaw('(type & ?) > 0', [RoomType::Archived->value]);
 
@@ -319,11 +317,9 @@ return new class extends Component
     #[Computed]
     public function directMessageMembers(): Collection
     {
-        $tenantId = Bonfire::tenantId();
         $current = $this->currentMember();
 
         return Member::query()
-            ->where('tenant_id', $tenantId)
             ->where('is_active', true)
             ->when($current !== null, fn ($q) => $q->where('id', '!=', $current->id))
             ->orderBy('display_name')
@@ -360,12 +356,10 @@ return new class extends Component
 
         $room = Room::query()
             ->where('slug', $slug)
-            ->where('tenant_id', Bonfire::tenantId())
             ->first();
 
         if ($room === null) {
             $room = Room::query()->create([
-                'tenant_id' => Bonfire::tenantId(),
                 'name' => $target->display_name,
                 'slug' => $slug,
                 'type' => RoomType::Private->value,
@@ -414,10 +408,6 @@ return new class extends Component
     {
         return CallSession::query()
             ->whereIn('status', ['ringing', 'active'])
-            ->where(function ($q): void {
-                $q->whereNull('tenant_id')
-                    ->orWhere('tenant_id', Bonfire::tenantId());
-            })
             ->get(['caller_member_id', 'callee_member_id'])
             ->flatMap(fn (CallSession $s) => [$s->caller_member_id, $s->callee_member_id])
             ->unique()
@@ -458,13 +448,12 @@ return new class extends Component
         $slug = Str::slug($name);
         $originalSlug = $slug;
         $suffix = 1;
-        while (Room::query()->where('slug', $slug)->where('tenant_id', Bonfire::tenantId())->exists()) {
+        while (Room::query()->where('slug', $slug)->exists()) {
             $suffix++;
             $slug = $originalSlug.'-'.$suffix;
         }
 
         $room = Room::query()->create([
-            'tenant_id' => Bonfire::tenantId(),
             'name' => $name,
             'slug' => $slug,
             'description' => trim($this->newChannelDescription) ?: null,
@@ -508,7 +497,6 @@ return new class extends Component
 
         if ($currentRoomId === $roomId) {
             $fallback = Room::query()
-                ->where('tenant_id', Bonfire::tenantId())
                 ->whereRaw('(type & ?) = 0', [RoomType::Archived->value])
                 ->where('slug', 'not like', 'dm-%')
                 ->orderBy('name')

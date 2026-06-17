@@ -351,8 +351,8 @@
                 @else
                     @feature('video_calls')
                         @php
-                            $isGamingWs = class_exists('App\\Support\\WorkspaceManager')
-                                && app('App\\Support\\WorkspaceManager')->current()?->theme === 'gaming';
+                            $isGamingWs = class_exists('App\\Models\\Community')
+                                && \App\Models\Community::current()?->theme === 'gaming';
                         @endphp
                         <button type="button"
                                 title="{{ $isGamingWs ? 'Start voice + screen share' : 'Start or join meeting in this channel' }}"
@@ -1023,7 +1023,7 @@
                                         @if ($pinnedBodyIsHtml)
                                             {!! app(\ArtisanBuild\Bonfire\Support\MarkdownRenderer::class)->highlightMentions($pm->body) !!}
                                         @else
-                                            {!! app(\ArtisanBuild\Bonfire\Support\MarkdownRenderer::class)->render($pm->body, $pm->tenant_id) !!}
+                                            {!! app(\ArtisanBuild\Bonfire\Support\MarkdownRenderer::class)->render($pm->body) !!}
                                         @endif
                                     </div>
                                     <div class="mt-2 flex items-center justify-between">

@@ -4,9 +4,7 @@
     $showStatus = $this->statusVisible();
     $display = $member?->display_name ?? auth()->user()?->name ?? 'Me';
     $avatar = $member?->avatar_url ?? 'https://ui-avatars.com/api/?name='.urlencode($display);
-    $wsId = class_exists('App\\Support\\WorkspaceManager')
-        ? (app('App\\Support\\WorkspaceManager')->currentId() ?? 0)
-        : 0;
+    $wsId = 0;
 @endphp
 
 <div class="flex-shrink-0 border-t border-zinc-200 px-2 py-2

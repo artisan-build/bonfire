@@ -12,7 +12,6 @@ return new class extends Migration
     {
         Schema::create('bonfire_messages', function (Blueprint $table): void {
             $table->id();
-            $table->unsignedBigInteger('tenant_id')->nullable();
             $table->unsignedBigInteger('room_id');
             $table->unsignedBigInteger('member_id');
             $table->unsignedBigInteger('parent_id')->nullable();
@@ -24,7 +23,6 @@ return new class extends Migration
             $table->foreign('member_id')->references('id')->on('bonfire_members')->cascadeOnDelete();
             $table->foreign('parent_id')->references('id')->on('bonfire_messages')->cascadeOnDelete();
             $table->index(['room_id', 'parent_id', 'created_at']);
-            $table->index('tenant_id');
         });
     }
 

@@ -76,10 +76,7 @@ return new class extends Component
     #[Computed]
     public function mentionables(): array
     {
-        $tenantId = Bonfire::tenantId();
-
         return Member::query()
-            ->where('tenant_id', $tenantId)
             ->where('is_active', true)
             ->orderBy('display_name')
             ->get(['id', 'display_name', 'avatar_url'])
@@ -391,7 +388,6 @@ return new class extends Component
         }
 
         $attrs = [
-            'tenant_id' => Bonfire::tenantId(),
             'room_id' => $this->room->getKey(),
             'member_id' => $member->getKey(),
             'parent_id' => $parent?->getKey(),

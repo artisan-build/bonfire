@@ -6,8 +6,6 @@ use ArtisanBuild\Bonfire\Facades\Bonfire;
 use Illuminate\Support\Facades\Auth;
 
 return [
-    'tenant_id' => fn () => null,
-
     'disk' => 'public',
     'max_attachment_size_kb' => 10240,
     'allowed_attachment_types' => ['image/*', 'application/pdf'],

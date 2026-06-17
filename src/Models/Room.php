@@ -17,7 +17,6 @@ use Override;
  * Represents a chat room or channel in Bonfire.
  *
  * @property int $id
- * @property int|null $tenant_id
  * @property string $name
  * @property string $slug
  * @property string|null $description
@@ -34,7 +33,14 @@ class Room extends Model
 
     protected $table = 'bonfire_rooms';
 
-    protected $guarded = [];
+    /** @var list<string> */
+    protected $fillable = [
+        'name',
+        'slug',
+        'description',
+        'type',
+        'created_by',
+    ];
 
     #[Override]
     public function getRouteKeyName(): string
@@ -142,7 +148,6 @@ class Room extends Model
     {
         return [
             'type' => 'integer',
-            'tenant_id' => 'integer',
         ];
     }
 }

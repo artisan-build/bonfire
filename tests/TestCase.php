@@ -48,7 +48,6 @@ abstract class TestCase extends Orchestra
             'database' => ':memory:',
             'prefix' => '',
         ]);
-        $app['config']->set('bonfire.tenant_id', fn () => null);
         $app['config']->set('bonfire.route_middleware', ['web']);
     }
 }

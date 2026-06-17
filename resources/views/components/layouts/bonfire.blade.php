@@ -40,10 +40,6 @@
               },
           }">
         <div class="flex h-full">
-            @auth
-                <livewire:workspace-rail />
-            @endauth
-
             <aside :style="sidebarOpen ? 'width: ' + sidebarWidth + 'px' : 'width: 0px'"
                    :class="resizing ? '' : 'transition-[width] duration-200 ease-out'"
                    class="relative flex h-full flex-shrink-0 flex-col overflow-hidden border-r border-zinc-200
@@ -54,10 +50,10 @@
                     @php
                         $currentBonfireMember = \ArtisanBuild\Bonfire\Facades\Bonfire::memberFor(auth()->user());
                         $isBonfireAdmin = $currentBonfireMember?->hasRoleAtLeast(\ArtisanBuild\Bonfire\Enums\BonfireRole::Admin) ?? false;
-                        $currentWorkspace = class_exists('App\\Support\\WorkspaceManager')
-                            ? app('App\\Support\\WorkspaceManager')->current()
+                        $community = class_exists('App\\Models\\Community')
+                            ? \App\Models\Community::current()
                             : null;
-                        $workspaceLabel = $currentWorkspace?->name ?? config('app.name', 'Bonfire');
+                        $workspaceLabel = $community?->name ?? config('app.name', 'Bonfire');
                     @endphp
 
                     <div class="flex h-12 flex-shrink-0 items-center justify-between gap-2 border-b border-zinc-200 px-3
@@ -72,12 +68,11 @@
                             </button>
 
                             <flux:menu>
-                                <flux:menu.item icon="plus">Invite people</flux:menu.item>
-                                @if (Route::has('workspace.settings'))
+                                @if ($isBonfireAdmin && Route::has('community.settings'))
                                     <flux:menu.item icon="cog-6-tooth"
-                                                    href="{{ route('workspace.settings') }}"
+                                                    href="{{ route('community.settings') }}"
                                                     wire:navigate>
-                                        Workspace settings
+                                        Community settings
                                     </flux:menu.item>
                                 @endif
                                 @if ($isBonfireAdmin)
@@ -308,13 +303,8 @@
                     </a>
                 </template>
             </div>
-            @php
-                $bonfireWorkspaceId = class_exists('App\\Support\\WorkspaceManager')
-                    ? (app('App\\Support\\WorkspaceManager')->currentId() ?? 0)
-                    : 0;
-            @endphp
             <script>
-                window.bonfireWorkspaceId = {{ $bonfireWorkspaceId }};
+                window.bonfireWorkspaceId = 0;
             </script>
             @once
                 <script>

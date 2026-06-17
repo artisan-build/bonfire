@@ -23,7 +23,6 @@ class BonfireManager
             [
                 'memberable_type' => $memberable->getMorphClass(),
                 'memberable_id' => $memberable->getKey(),
-                'tenant_id' => $this->tenantId(),
             ],
             [
                 'display_name' => $displayName,
@@ -49,7 +48,6 @@ class BonfireManager
         return Member::query()
             ->where('memberable_type', $model->getMorphClass())
             ->where('memberable_id', $model->getKey())
-            ->where('tenant_id', $this->tenantId())
             ->first();
     }
 
@@ -70,7 +68,6 @@ class BonfireManager
         }
 
         return Message::query()->create([
-            'tenant_id' => $this->tenantId(),
             'room_id' => $room->getKey(),
             'member_id' => $member->getKey(),
             'parent_id' => $parent?->getKey(),
@@ -100,18 +97,5 @@ class BonfireManager
         $member->save();
 
         return $member;
-    }
-
-    public function tenantId(): ?int
-    {
-        $resolver = config('bonfire.tenant_id');
-
-        if (is_callable($resolver)) {
-            $value = $resolver();
-
-            return $value === null ? null : (int) $value;
-        }
-
-        return $resolver === null ? null : (int) $resolver;
     }
 }
