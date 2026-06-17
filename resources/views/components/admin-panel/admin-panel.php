@@ -2,13 +2,20 @@
 
 declare(strict_types=1);
 
+use ArtisanBuild\Bonfire\Actions\AddMemberToRoom;
+use ArtisanBuild\Bonfire\Actions\CreateRoom;
+use ArtisanBuild\Bonfire\Actions\DeleteChannel;
+use ArtisanBuild\Bonfire\Actions\ForceDeleteRoom;
+use ArtisanBuild\Bonfire\Actions\KickMember;
+use ArtisanBuild\Bonfire\Actions\RemoveMemberFromRoom;
+use ArtisanBuild\Bonfire\Actions\RestoreChannel;
+use ArtisanBuild\Bonfire\Actions\ToggleMemberActive;
+use ArtisanBuild\Bonfire\Actions\UpdateRoom;
 use ArtisanBuild\Bonfire\Enums\BonfireRole;
-use ArtisanBuild\Bonfire\Enums\RoomType;
 use ArtisanBuild\Bonfire\Facades\Bonfire;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Room;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -65,7 +72,7 @@ return new class extends Component
         }
 
         $actor = Bonfire::memberFor(auth()->user());
-        $room->addMember($member, $actor);
+        resolve(AddMemberToRoom::class)($room, $member, $actor);
 
         unset($this->rooms);
         $this->dispatch('bonfire:rooms-changed');
@@ -82,7 +89,7 @@ return new class extends Component
             return;
         }
 
-        $room->removeMember($member);
+        resolve(RemoveMemberFromRoom::class)($room, $member);
 
         unset($this->rooms);
         $this->dispatch('bonfire:rooms-changed');
@@ -151,7 +158,7 @@ return new class extends Component
         $room = Room::onlyTrashed()->find($roomId);
 
         if ($room !== null) {
-            $room->restore();
+            resolve(RestoreChannel::class)($room);
             unset($this->rooms, $this->deletedRooms);
             $this->dispatch('bonfire:rooms-changed');
         }
@@ -164,7 +171,7 @@ return new class extends Component
         $room = Room::onlyTrashed()->find($roomId);
 
         if ($room !== null) {
-            $room->forceDelete();
+            resolve(ForceDeleteRoom::class)($room);
             unset($this->rooms, $this->deletedRooms);
             $this->dispatch('bonfire:rooms-changed');
         }
@@ -177,7 +184,7 @@ return new class extends Component
         $room = Room::query()->find($roomId);
 
         if ($room !== null) {
-            $room->delete();
+            resolve(DeleteChannel::class)($room);
             unset($this->rooms, $this->deletedRooms);
             $this->dispatch('bonfire:rooms-changed');
         }
@@ -207,24 +214,14 @@ return new class extends Component
         $member = Bonfire::memberFor(auth()->user());
         abort_unless($member !== null, 403);
 
-        $type = 0;
-        if ($this->newPrivate) {
-            $type = RoomType::add($type, RoomType::Private);
-        }
-        if ($this->newArchived) {
-            $type = RoomType::add($type, RoomType::Archived);
-        }
-        if ($this->newAnnouncements) {
-            $type = RoomType::add($type, RoomType::Announcements);
-        }
-
-        Room::query()->create([
-            'name' => $name,
-            'slug' => Str::slug($name).'-'.Str::lower(Str::random(6)),
-            'description' => trim($this->newDescription) ?: null,
-            'type' => $type,
-            'created_by' => $member->getKey(),
-        ]);
+        resolve(CreateRoom::class)(
+            $member,
+            $name,
+            $this->newDescription,
+            $this->newPrivate,
+            $this->newArchived,
+            $this->newAnnouncements,
+        );
 
         $this->reset(['newName', 'newDescription', 'newPrivate', 'newArchived', 'newAnnouncements']);
         unset($this->rooms);
@@ -237,32 +234,10 @@ return new class extends Component
 
         $room = Room::query()->findOrFail($roomId);
 
-        if (in_array($field, ['name', 'description'], true)) {
-            $room->setAttribute($field, is_string($value) ? (trim($value) ?: null) : null);
-            $room->save();
+        if (resolve(UpdateRoom::class)($room, $field, $value)) {
             unset($this->rooms);
             $this->dispatch('bonfire:rooms-changed');
-
-            return;
         }
-
-        $flag = match ($field) {
-            'private' => RoomType::Private,
-            'archived' => RoomType::Archived,
-            'announcements' => RoomType::Announcements,
-            default => null,
-        };
-
-        if ($flag === null) {
-            return;
-        }
-
-        $room->type = $value
-            ? RoomType::add($room->type, $flag)
-            : RoomType::remove($room->type, $flag);
-        $room->save();
-        unset($this->rooms);
-        $this->dispatch('bonfire:rooms-changed');
     }
 
     public function changeRole(int $memberId, string $role): void
@@ -278,11 +253,7 @@ return new class extends Component
         $target = Member::query()->findOrFail($memberId);
         $this->authorize('toggleActive', $target);
 
-        if ($target->is_active) {
-            Bonfire::deactivate($target);
-        } else {
-            Bonfire::reactivate($target);
-        }
+        resolve(ToggleMemberActive::class)($target);
 
         unset($this->members);
     }
@@ -298,8 +269,7 @@ return new class extends Component
 
         $this->authorize('kick', $target);
 
-        $target->rooms()->detach();
-        $target->delete();
+        resolve(KickMember::class)($target);
 
         unset($this->members, $this->rooms);
         $this->dispatch('bonfire:rooms-changed');
