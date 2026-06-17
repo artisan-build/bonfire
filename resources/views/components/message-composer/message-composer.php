@@ -2,12 +2,17 @@
 
 declare(strict_types=1);
 
-use ArtisanBuild\Bonfire\Events\MessagePosted;
+use ArtisanBuild\Bonfire\Actions\CancelScheduledMessage;
+use ArtisanBuild\Bonfire\Actions\ReleaseDueScheduledMessages;
+use ArtisanBuild\Bonfire\Actions\SendMessage;
+use ArtisanBuild\Bonfire\Actions\SendScheduledMessageNow;
+use ArtisanBuild\Bonfire\Actions\UpdateScheduledMessage;
 use ArtisanBuild\Bonfire\Facades\Bonfire;
 use ArtisanBuild\Bonfire\Models\Attachment;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\FindOwnedScheduledMessage;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
@@ -186,13 +191,17 @@ return new class extends Component
             return;
         }
 
-        $message = $this->createMessage($member, $parent, $effectiveBody, $scheduledAt, $poll);
-
-        $this->storeAttachments($message);
-
-        if ($parent !== null && $this->alsoSendToChannel && $scheduledAt === null) {
-            Bonfire::postAs($member, $this->room, $effectiveBody, null);
-        }
+        $message = resolve(SendMessage::class)(
+            $member,
+            $this->room,
+            $effectiveBody,
+            $parent,
+            $scheduledAt,
+            $poll,
+            $this->pendingAttachments,
+            $this->pendingAttachmentIds,
+            $this->alsoSendToChannel,
+        );
 
         if ($scheduledAt !== null) {
             $this->lastScheduledAt = $scheduledAt->toIso8601String();
@@ -206,43 +215,18 @@ return new class extends Component
 
     public function dismissScheduled(): void
     {
-        $this->releaseDueOwnedScheduledMessages();
+        $member = $this->member();
+
+        if ($member !== null) {
+            $released = resolve(ReleaseDueScheduledMessages::class)($member);
+
+            if ($released->isNotEmpty()) {
+                $this->dispatch('bonfire-scheduled-released');
+            }
+        }
 
         $this->lastScheduledAt = null;
         $this->lastScheduledMessageId = null;
-    }
-
-    /**
-     * Convert any scheduled messages owned by the current member whose
-     * scheduled_for has come due into regular posted messages, broadcasting
-     * each so listeners refresh.
-     */
-    private function releaseDueOwnedScheduledMessages(): void
-    {
-        $member = $this->member();
-        if ($member === null) {
-            return;
-        }
-
-        $due = Message::query()
-            ->where('member_id', $member->id)
-            ->whereNotNull('scheduled_for')
-            ->where('scheduled_for', '<=', now())
-            ->get();
-
-        foreach ($due as $message) {
-            $scheduledAt = $message->scheduled_for;
-            $message->forceFill([
-                'scheduled_for' => null,
-                'created_at' => $scheduledAt ?? now(),
-            ])->save();
-
-            event(new MessagePosted($message));
-        }
-
-        if ($due->isNotEmpty()) {
-            $this->dispatch('bonfire-scheduled-released');
-        }
     }
 
     #[Computed]
@@ -288,23 +272,18 @@ return new class extends Component
 
     public function updateScheduledMessage(int $id, string $body, string $newTime): void
     {
-        $message = $this->findScheduledMessageForCurrentMember($id);
+        $member = $this->member();
+        if ($member === null) {
+            return;
+        }
+
+        $message = resolve(UpdateScheduledMessage::class)($member, $id, $body, Carbon::parse($newTime));
         if ($message === null) {
             return;
         }
 
-        $newAt = Carbon::parse($newTime);
-        if ($newAt->isPast()) {
-            return;
-        }
-
-        $message->update([
-            'body' => $body,
-            'scheduled_for' => $newAt,
-        ]);
-
         if ($id === $this->lastScheduledMessageId) {
-            $this->lastScheduledAt = $newAt->toIso8601String();
+            $this->lastScheduledAt = $message->scheduled_for->toIso8601String();
         }
 
         unset($this->lastScheduledMessage, $this->scheduledMessages);
@@ -312,12 +291,15 @@ return new class extends Component
 
     public function cancelScheduledMessage(int $id): void
     {
-        $message = $this->findScheduledMessageForCurrentMember($id);
-        if ($message === null) {
+        $member = $this->member();
+        if ($member === null) {
             return;
         }
 
-        $message->delete();
+        $message = resolve(CancelScheduledMessage::class)($member, $id);
+        if ($message === null) {
+            return;
+        }
 
         if ($id === $this->lastScheduledMessageId) {
             $this->lastScheduledAt = null;
@@ -329,15 +311,15 @@ return new class extends Component
 
     public function sendScheduledNow(int $id): void
     {
-        $message = $this->findScheduledMessageForCurrentMember($id);
-        if ($message === null) {
+        $member = $this->member();
+        if ($member === null) {
             return;
         }
 
-        $message->update([
-            'scheduled_for' => null,
-            'created_at' => now(),
-        ]);
+        $message = resolve(SendScheduledMessageNow::class)($member, $id);
+        if ($message === null) {
+            return;
+        }
 
         if ($id === $this->lastScheduledMessageId) {
             $this->lastScheduledAt = null;
@@ -355,12 +337,7 @@ return new class extends Component
             return null;
         }
 
-        return Message::query()
-            ->where('id', $id)
-            ->where('member_id', $member->id)
-            ->whereNotNull('scheduled_for')
-            ->where('scheduled_for', '>', now())
-            ->first();
+        return resolve(FindOwnedScheduledMessage::class)($member, $id);
     }
 
     public function scheduledMessagesCount(): int
@@ -376,31 +353,6 @@ return new class extends Component
             ->whereNotNull('scheduled_for')
             ->where('scheduled_for', '>', now())
             ->count();
-    }
-
-    /**
-     * @param  array<string, mixed>|null  $poll
-     */
-    private function createMessage(Member $member, ?Message $parent, string $body, ?Carbon $scheduledAt, ?array $poll = null): Message
-    {
-        if ($scheduledAt === null && $poll === null) {
-            return Bonfire::postAs($member, $this->room, $body, $parent);
-        }
-
-        $attrs = [
-            'room_id' => $this->room->getKey(),
-            'member_id' => $member->getKey(),
-            'parent_id' => $parent?->getKey(),
-            'body' => $body,
-            'poll' => $poll,
-            'scheduled_for' => $scheduledAt,
-        ];
-
-        if ($scheduledAt !== null) {
-            return Message::withoutEvents(fn (): Message => Message::query()->create($attrs));
-        }
-
-        return Message::query()->create($attrs);
     }
 
     /**
@@ -490,11 +442,17 @@ return new class extends Component
         $bodyPlain = trim(strip_tags(html_entity_decode($bodyHtml, ENT_QUOTES | ENT_HTML5)));
         $effectiveBody = $bodyPlain === '' ? $poll['question'] : $bodyHtml;
 
-        $this->createMessage($member, $parent, $effectiveBody, null, $poll);
-
-        if ($parent !== null && $this->alsoSendToChannel) {
-            Bonfire::postAs($member, $this->room, $effectiveBody, null);
-        }
+        resolve(SendMessage::class)(
+            $member,
+            $this->room,
+            $effectiveBody,
+            $parent,
+            null,
+            $poll,
+            [],
+            [],
+            $this->alsoSendToChannel,
+        );
 
         $this->reset('body');
         $this->pendingPoll = null;
@@ -537,55 +495,5 @@ return new class extends Component
     public function discardPendingPoll(): void
     {
         $this->pendingPoll = null;
-    }
-
-    private function storeAttachments(Message $message): void
-    {
-        if ($this->pendingAttachments === [] && $this->pendingAttachmentIds === []) {
-            return;
-        }
-
-        $disk = (string) config('bonfire.disk', 'public');
-
-        foreach ($this->pendingAttachments as $upload) {
-            $path = $upload->store('bonfire/attachments', $disk);
-
-            if ($path === false) {
-                continue;
-            }
-
-            Attachment::query()->create([
-                'message_id' => $message->id,
-                'disk' => $disk,
-                'path' => $path,
-                'filename' => $upload->getClientOriginalName(),
-                'mime_type' => $upload->getMimeType() ?? 'application/octet-stream',
-                'size' => $upload->getSize() ?? 0,
-                'created_at' => now(),
-            ]);
-        }
-
-        // Clone selected recent attachments by referencing the same stored path.
-        if ($this->pendingAttachmentIds !== []) {
-            $member = $this->member();
-            if ($member !== null) {
-                $existing = Attachment::query()
-                    ->whereIn('id', $this->pendingAttachmentIds)
-                    ->whereHas('message', fn ($q) => $q->where('member_id', $member->id))
-                    ->get();
-
-                foreach ($existing as $src) {
-                    Attachment::query()->create([
-                        'message_id' => $message->id,
-                        'disk' => $src->disk,
-                        'path' => $src->path,
-                        'filename' => $src->filename,
-                        'mime_type' => $src->mime_type,
-                        'size' => $src->size,
-                        'created_at' => now(),
-                    ]);
-                }
-            }
-        }
     }
 };
