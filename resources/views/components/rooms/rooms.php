@@ -2,6 +2,15 @@
 
 declare(strict_types=1);
 
+use ArtisanBuild\Bonfire\Actions\AssignRoomToSection;
+use ArtisanBuild\Bonfire\Actions\CreateChannel;
+use ArtisanBuild\Bonfire\Actions\CreateChannelSection;
+use ArtisanBuild\Bonfire\Actions\DeleteChannel;
+use ArtisanBuild\Bonfire\Actions\DeleteChannelSection;
+use ArtisanBuild\Bonfire\Actions\OpenDirectMessage;
+use ArtisanBuild\Bonfire\Actions\RenameChannelSection;
+use ArtisanBuild\Bonfire\Actions\RestoreChannel;
+use ArtisanBuild\Bonfire\Actions\ToggleRoomStar;
 use ArtisanBuild\Bonfire\Enums\BonfireRole;
 use ArtisanBuild\Bonfire\Enums\RoomType;
 use ArtisanBuild\Bonfire\Facades\Bonfire;
@@ -13,7 +22,6 @@ use ArtisanBuild\Bonfire\Models\Room;
 use ArtisanBuild\Bonfire\Support\UnreadTracker;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -205,21 +213,7 @@ return new class extends Component
             return;
         }
 
-        $clean = Str::limit(trim($name), 80, '');
-
-        if ($clean === '') {
-            return;
-        }
-
-        $position = (int) ChannelSection::query()
-            ->where('member_id', $member->id)
-            ->max('position');
-
-        ChannelSection::query()->create([
-            'member_id' => $member->id,
-            'name' => $clean,
-            'position' => $position + 1,
-        ]);
+        resolve(CreateChannelSection::class)($member, $name);
 
         unset($this->channelSections);
     }
@@ -231,15 +225,7 @@ return new class extends Component
             return;
         }
 
-        $clean = Str::limit(trim($name), 80, '');
-        if ($clean === '') {
-            return;
-        }
-
-        ChannelSection::query()
-            ->where('member_id', $member->id)
-            ->where('id', $sectionId)
-            ->update(['name' => $clean]);
+        resolve(RenameChannelSection::class)($member, $sectionId, $name);
 
         unset($this->channelSections);
     }
@@ -251,21 +237,7 @@ return new class extends Component
             return;
         }
 
-        $section = ChannelSection::query()
-            ->where('member_id', $member->id)
-            ->where('id', $sectionId)
-            ->first();
-
-        if ($section === null) {
-            return;
-        }
-
-        DB::table('bonfire_member_room')
-            ->where('member_id', $member->id)
-            ->where('section_id', $sectionId)
-            ->update(['section_id' => null]);
-
-        $section->delete();
+        resolve(DeleteChannelSection::class)($member, $sectionId);
 
         unset($this->channelSections, $this->roomSectionMap);
     }
@@ -277,36 +249,7 @@ return new class extends Component
             return;
         }
 
-        $pivotExists = DB::table('bonfire_member_room')
-            ->where('member_id', $member->id)
-            ->where('room_id', $roomId)
-            ->exists();
-
-        if (! $pivotExists) {
-            // User isn't a member of this room — create pivot so section assignment sticks.
-            // (Public rooms aren't formally joined; still, assignment is per-user sidebar state.)
-            DB::table('bonfire_member_room')->insert([
-                'member_id' => $member->id,
-                'room_id' => $roomId,
-                'section_id' => $sectionId,
-                'created_by' => $member->id,
-                'created_at' => now(),
-            ]);
-        } else {
-            $validSection = $sectionId === null || ChannelSection::query()
-                ->where('member_id', $member->id)
-                ->where('id', $sectionId)
-                ->exists();
-
-            if (! $validSection) {
-                return;
-            }
-
-            DB::table('bonfire_member_room')
-                ->where('member_id', $member->id)
-                ->where('room_id', $roomId)
-                ->update(['section_id' => $sectionId]);
-        }
+        resolve(AssignRoomToSection::class)($member, $roomId, $sectionId);
 
         unset($this->roomSectionMap);
     }
@@ -351,24 +294,7 @@ return new class extends Component
             return null;
         }
 
-        $sortedIds = collect([$current->id, $target->id])->sort()->implode('-');
-        $slug = 'dm-'.$sortedIds;
-
-        $room = Room::query()
-            ->where('slug', $slug)
-            ->first();
-
-        if ($room === null) {
-            $room = Room::query()->create([
-                'name' => $target->display_name,
-                'slug' => $slug,
-                'type' => RoomType::Private->value,
-                'created_by' => $current->id,
-            ]);
-
-            $room->addMember($current);
-            $room->addMember($target);
-        }
+        $room = resolve(OpenDirectMessage::class)($current, $target);
 
         return $this->redirect(route('bonfire.room.show', $room), navigate: true);
     }
@@ -436,41 +362,18 @@ return new class extends Component
         }
 
         $member = $this->currentMember();
-
-        $type = 0;
-        if ($this->newChannelPrivate) {
-            $type = RoomType::add($type, RoomType::Private);
-        }
-        if ($this->newChannelAnnouncements) {
-            $type = RoomType::add($type, RoomType::Announcements);
+        if ($member === null) {
+            return null;
         }
 
-        $slug = Str::slug($name);
-        $originalSlug = $slug;
-        $suffix = 1;
-        while (Room::query()->where('slug', $slug)->exists()) {
-            $suffix++;
-            $slug = $originalSlug.'-'.$suffix;
-        }
-
-        $room = Room::query()->create([
-            'name' => $name,
-            'slug' => $slug,
-            'description' => trim($this->newChannelDescription) ?: null,
-            'type' => $type,
-            'created_by' => $member->id,
-        ]);
-
-        if ($member !== null) {
-            $room->addMember($member, $member);
-        }
-
-        foreach ($this->newChannelMemberIds as $memberId) {
-            $target = Member::query()->find($memberId);
-            if ($target !== null && ($member === null || $target->id !== $member->id)) {
-                $room->addMember($target, $member);
-            }
-        }
+        $room = resolve(CreateChannel::class)(
+            $member,
+            $name,
+            $this->newChannelDescription,
+            $this->newChannelPrivate,
+            $this->newChannelAnnouncements,
+            $this->newChannelMemberIds,
+        );
 
         $this->reset(['newChannelName', 'newChannelDescription', 'newChannelPrivate', 'newChannelAnnouncements', 'newChannelMemberIds']);
         unset($this->visibleRooms);
@@ -492,7 +395,7 @@ return new class extends Component
             return null;
         }
 
-        $room->delete();
+        resolve(DeleteChannel::class)($room);
         unset($this->visibleRooms);
 
         if ($currentRoomId === $roomId) {
@@ -517,11 +420,11 @@ return new class extends Component
         abort_unless($this->isAdmin(), 403);
 
         $room = Room::withTrashed()->find($roomId);
-        if ($room === null || ! $room->trashed()) {
+        if ($room === null) {
             return;
         }
 
-        $room->restore();
+        resolve(RestoreChannel::class)($room);
         unset($this->visibleRooms);
     }
 
@@ -533,23 +436,12 @@ return new class extends Component
             return;
         }
 
-        $exists = DB::table('bonfire_starred_rooms')
-            ->where('member_id', $member->id)
-            ->where('room_id', $roomId)
-            ->exists();
-
-        if ($exists) {
-            DB::table('bonfire_starred_rooms')
-                ->where('member_id', $member->id)
-                ->where('room_id', $roomId)
-                ->delete();
-        } else {
-            DB::table('bonfire_starred_rooms')->insert([
-                'member_id' => $member->id,
-                'room_id' => $roomId,
-                'created_at' => now(),
-            ]);
+        $room = Room::withTrashed()->find($roomId);
+        if ($room === null) {
+            return;
         }
+
+        resolve(ToggleRoomStar::class)($member, $room);
 
         unset($this->starredRoomIds, $this->visibleRooms);
 
