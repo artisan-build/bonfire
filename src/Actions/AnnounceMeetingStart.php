@@ -7,6 +7,7 @@ namespace ArtisanBuild\Bonfire\Actions;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\SafeMessageHtml;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -38,10 +39,10 @@ final class AnnounceMeetingStart
                 .'style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:8px 16px;border-radius:6px;'
                 .'background:#059669;color:#ffffff;font-weight:600;font-size:13px;border:0;cursor:pointer;">'
                 .'📞 Join meeting</button>',
-                e($caller->display_name),
-                e($room->name),
+                SafeMessageHtml::escape($caller->display_name),
+                SafeMessageHtml::escape($room->name),
                 $room->id,
-                e($room->name),
+                SafeMessageHtml::escape($room->name),
             ),
         ]);
 

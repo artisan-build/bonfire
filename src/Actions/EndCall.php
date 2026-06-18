@@ -7,6 +7,7 @@ namespace ArtisanBuild\Bonfire\Actions;
 use ArtisanBuild\Bonfire\Models\CallSession;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
+use ArtisanBuild\Bonfire\Support\SafeMessageHtml;
 use Carbon\CarbonInterface;
 
 /**
@@ -62,7 +63,7 @@ final class EndCall
         }
 
         $caller = Member::query()->find($session->caller_member_id);
-        $body = str_replace('{caller}', $caller->display_name ?? 'Unknown', $body);
+        $body = str_replace('{caller}', SafeMessageHtml::escape($caller->display_name ?? 'Unknown'), $body);
 
         Message::create([
             'room_id' => $session->room_id,

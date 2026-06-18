@@ -107,3 +107,34 @@ it('posts an invite message mentioning the target member', function (): void {
         ->and($message->body)->toContain('Grace Hopper')
         ->and($message->body)->toContain('#mention-Grace-Hopper');
 });
+
+it('escapes a malicious target display name in the invite mention anchor (issue #23)', function (): void {
+    $caller = meetingActionMember('Ada');
+    $target = meetingActionMember('a" onmouseover="alert(1)');
+    $room = meetingActionRoom($caller);
+
+    app(InviteToMeeting::class)($room, $caller, $target);
+
+    $message = Message::query()->where('room_id', $room->id)->latest('id')->first();
+
+    // The raw quote must never appear unescaped — it would break out of the href attribute.
+    expect($message->body)->not->toContain('a" onmouseover="alert(1)')
+        ->and($message->body)->toContain('&quot;')
+        // The visible mention label is escaped too.
+        ->and($message->body)->not->toContain('<script>');
+});
+
+it('escapes angle brackets in a target display name in the invite (issue #23)', function (): void {
+    $caller = meetingActionMember('Ada');
+    $target = meetingActionMember('</a><script>alert(1)</script>');
+    $room = meetingActionRoom($caller);
+
+    app(InviteToMeeting::class)($room, $caller, $target);
+
+    $message = Message::query()->where('room_id', $room->id)->latest('id')->first();
+
+    expect($message->body)->not->toContain('<script>')
+        ->and($message->body)->toContain('&lt;script&gt;')
+        // The anchor itself stays well-formed (single opening + closing tag).
+        ->and(substr_count($message->body, '<a href="#mention-'))->toBe(1);
+});

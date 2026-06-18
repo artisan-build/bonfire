@@ -152,3 +152,45 @@ it('does not re-update an already-closed session or post a second summary', func
         ->and($fresh->ended_at->timestamp)->toBe($endedAt->timestamp)
         ->and(Message::query()->where('room_id', $room->id)->count())->toBe(0);
 });
+
+it('escapes a malicious caller display name in the missed-call summary (issue #23)', function (): void {
+    $caller = callActionMember('a" onmouseover="alert(1)');
+    $callee = callActionMember('Callee');
+    $room = callActionRoom($caller);
+
+    $session = CallSession::query()->create([
+        'room_id' => $room->id,
+        'caller_member_id' => $caller->id,
+        'callee_member_id' => $callee->id,
+        'status' => 'ringing',
+    ]);
+
+    app(EndCall::class)($session, $caller, 'canceled');
+
+    $summary = Message::query()->where('room_id', $room->id)->latest('id')->first();
+
+    // The raw quote must be entity-escaped so it cannot break out of any attribute.
+    expect($summary->body)->not->toContain('a" onmouseover="alert(1)')
+        ->and($summary->body)->toContain('a&quot; onmouseover=&quot;alert(1)')
+        ->and($summary->body)->toContain('**Missed call** from');
+});
+
+it('escapes angle brackets in a caller display name in the missed-call summary (issue #23)', function (): void {
+    $caller = callActionMember('</a><script>alert(1)</script>');
+    $callee = callActionMember('Callee');
+    $room = callActionRoom($caller);
+
+    $session = CallSession::query()->create([
+        'room_id' => $room->id,
+        'caller_member_id' => $caller->id,
+        'callee_member_id' => $callee->id,
+        'status' => 'ringing',
+    ]);
+
+    app(EndCall::class)($session, $caller, 'canceled');
+
+    $summary = Message::query()->where('room_id', $room->id)->latest('id')->first();
+
+    expect($summary->body)->not->toContain('<script>')
+        ->and($summary->body)->toContain('&lt;script&gt;');
+});
