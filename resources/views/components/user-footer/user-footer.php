@@ -131,7 +131,10 @@ return new class extends Component
             'profileDisplayName' => ['required', 'string', 'max:80'],
             'profilePhone' => ['nullable', 'string', 'max:40'],
             'profileTimezone' => ['nullable', 'string', 'max:64', 'timezone'],
-            'profileAvatar' => ['nullable', 'image', 'max:4096'],
+            // Explicit raster-image allowlist. Laravel's `image` rule accepts
+            // SVG (image/svg+xml), an XSS vector, so an explicit `mimetypes:`
+            // list is used instead. The stored path remains the hashed file.
+            'profileAvatar' => ['nullable', 'file', 'mimetypes:image/jpeg,image/png,image/gif,image/webp', 'max:4096'],
         ]);
 
         if ($this->profileAvatar !== null) {

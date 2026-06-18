@@ -150,6 +150,39 @@ return new class extends Component
         $this->pendingAttachments = array_values($this->pendingAttachments);
     }
 
+    /**
+     * Enforce the server-side size + MIME allowlist on freshly uploaded
+     * attachments and bound the count of cloned/existing attachment references.
+     * Rejects the whole send (validation exception) if any pending upload is
+     * too large or of a disallowed type, so nothing is silently dropped. SVG
+     * is excluded by the configured allowlist.
+     */
+    private function validatePendingAttachments(): void
+    {
+        if ($this->pendingAttachments === [] && $this->pendingAttachmentIds === []) {
+            return;
+        }
+
+        $maxKb = (int) config('bonfire.max_attachment_size_kb', 10240);
+        /** @var array<int, string> $allowedTypes */
+        $allowedTypes = (array) config('bonfire.allowed_attachment_types', []);
+
+        $rules = [];
+        $attributes = [];
+
+        if ($this->pendingAttachments !== []) {
+            $rules['pendingAttachments'] = ['array', 'max:10'];
+            $rules['pendingAttachments.*'] = ['file', 'max:'.$maxKb, 'mimetypes:'.implode(',', $allowedTypes)];
+            $attributes['pendingAttachments.*'] = __('attachment');
+        }
+
+        if ($this->pendingAttachmentIds !== []) {
+            $rules['pendingAttachmentIds'] = ['array', 'max:10'];
+        }
+
+        $this->validate($rules, attributes: $attributes);
+    }
+
     public function send(): void
     {
         $body = trim($this->body);
@@ -161,6 +194,8 @@ return new class extends Component
             && $this->pendingPoll === null) {
             return;
         }
+
+        $this->validatePendingAttachments();
 
         $this->authorize('post', $this->room);
 

@@ -8,7 +8,11 @@ use Illuminate\Support\Facades\Auth;
 return [
     'disk' => 'public',
     'max_attachment_size_kb' => 10240,
-    'allowed_attachment_types' => ['image/*', 'application/pdf'],
+    // Concrete server-side MIME allowlist enforced via the `mimetypes:` rule.
+    // SVG (image/svg+xml) is intentionally excluded — it can carry script and
+    // is an XSS vector — so the previous `image/*` wildcard was narrowed to
+    // explicit raster types plus PDF.
+    'allowed_attachment_types' => ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'],
 
     'route_prefix' => 'bonfire',
     'route_middleware' => ['web', 'auth'],

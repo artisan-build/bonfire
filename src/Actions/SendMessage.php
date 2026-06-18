@@ -101,7 +101,7 @@ final class SendMessage
                 'message_id' => $message->id,
                 'disk' => $disk,
                 'path' => $path,
-                'filename' => $upload->getClientOriginalName(),
+                'filename' => $this->sanitizeFilename($upload->getClientOriginalName()),
                 'mime_type' => $upload->getMimeType() ?? 'application/octet-stream',
                 'size' => $upload->getSize() ?? 0,
                 'created_at' => now(),
@@ -121,12 +121,45 @@ final class SendMessage
                     'message_id' => $message->id,
                     'disk' => $src->disk,
                     'path' => $src->path,
-                    'filename' => $src->filename,
+                    // Source rows were sanitized on their original write; re-run
+                    // for defence in depth and consistency.
+                    'filename' => $this->sanitizeFilename((string) $src->filename),
                     'mime_type' => $src->mime_type,
                     'size' => $src->size,
                     'created_at' => now(),
                 ]);
             }
         }
+    }
+
+    /**
+     * Reduce a client-supplied filename to a safe display value for the
+     * `filename` column (which feeds Content-Disposition on download): strip
+     * any path components, remove control characters and directory separators,
+     * collapse whitespace, and cap the length. The stored disk path is the
+     * hashed `store()` result and is never derived from this value.
+     */
+    private function sanitizeFilename(string $name): string
+    {
+        // Drop any directory components a client may have supplied (both
+        // separators), guarding against path traversal like "../../etc/passwd".
+        $name = basename(str_replace('\\', '/', $name));
+
+        // Remove control characters (incl. NUL, CR, LF — header-injection
+        // surface) and any residual slashes.
+        $name = (string) preg_replace('/[\x00-\x1F\x7F\/\\\\]+/', '', $name);
+
+        // Collapse internal whitespace runs and trim the edges.
+        $name = trim((string) preg_replace('/\s+/', ' ', $name));
+
+        if ($name === '') {
+            return 'file';
+        }
+
+        if (mb_strlen($name) > 255) {
+            $name = rtrim(mb_substr($name, 0, 255));
+        }
+
+        return $name;
     }
 }

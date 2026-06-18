@@ -76,7 +76,7 @@ Key options in `config/bonfire.php`:
 | `route_middleware` | `['web', 'auth']` | Middleware applied to Bonfire routes |
 | `disk` | `'public'` | Storage disk for file attachments |
 | `max_attachment_size_kb` | `10240` | Maximum upload size in KB |
-| `allowed_attachment_types` | `['image/*', 'application/pdf']` | Accepted MIME types |
+| `allowed_attachment_types` | `['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf']` | Accepted MIME types (SVG excluded — XSS vector) |
 | `notification_channels` | `['database']` | Laravel notification channels for mentions |
 | `link_preview_enabled` | `true` | Fetch link previews for posted URLs |
 | `resolve_member` | Uses `Bonfire::memberFor()` | Callable returning the current `Member` |
