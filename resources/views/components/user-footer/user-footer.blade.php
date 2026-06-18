@@ -171,10 +171,17 @@
                 </flux:menu.item>
             @endif
             <flux:menu.separator />
-            <flux:menu.item icon="arrow-right-start-on-rectangle"
-                            href="{{ route('logout', absolute: false) }}" wire:navigate>
-                Sign out
-            </flux:menu.item>
+            <form method="POST" action="{{ route('logout') }}" class="w-full">
+                @csrf
+                <flux:menu.item
+                    as="button"
+                    type="submit"
+                    icon="arrow-right-start-on-rectangle"
+                    class="w-full cursor-pointer"
+                >
+                    Sign out
+                </flux:menu.item>
+            </form>
         </flux:menu>
     </flux:dropdown>
 
