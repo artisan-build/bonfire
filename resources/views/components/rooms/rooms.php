@@ -22,6 +22,7 @@ use ArtisanBuild\Bonfire\Models\Room;
 use ArtisanBuild\Bonfire\Support\UnreadTracker;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -207,6 +208,8 @@ return new class extends Component
 
     public function createSection(string $name): void
     {
+        Validator::make(['name' => $name], ['name' => ['required', 'string', 'max:100']])->validate();
+
         $member = $this->currentMember();
 
         if ($member === null) {
@@ -220,6 +223,8 @@ return new class extends Component
 
     public function renameSection(int $sectionId, string $name): void
     {
+        Validator::make(['name' => $name], ['name' => ['required', 'string', 'max:100']])->validate();
+
         $member = $this->currentMember();
         if ($member === null) {
             return;
@@ -356,10 +361,12 @@ return new class extends Component
     {
         abort_unless($this->isAdmin(), 403);
 
+        $this->validate([
+            'newChannelName' => ['required', 'string', 'max:100'],
+            'newChannelDescription' => ['nullable', 'string', 'max:2000'],
+        ]);
+
         $name = trim($this->newChannelName);
-        if ($name === '') {
-            return null;
-        }
 
         $member = $this->currentMember();
         if ($member === null) {

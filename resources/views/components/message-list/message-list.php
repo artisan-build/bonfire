@@ -19,6 +19,7 @@ use ArtisanBuild\Bonfire\Models\Room;
 use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -281,6 +282,8 @@ return new class extends Component
         if ($clean === '' || $clean === '<p></p>') {
             return; // no-op on empty edit; user can delete instead
         }
+
+        Validator::make(['body' => $clean], ['body' => ['required', 'string', 'max:10000']])->validate();
 
         resolve(EditMessage::class)($message, $clean);
 

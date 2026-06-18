@@ -16,6 +16,7 @@ use ArtisanBuild\Bonfire\Facades\Bonfire;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Room;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Validator;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -203,11 +204,12 @@ return new class extends Component
 
     public function createRoom(): void
     {
-        $name = trim($this->newName);
+        $this->validate([
+            'newName' => ['required', 'string', 'max:100'],
+            'newDescription' => ['nullable', 'string', 'max:2000'],
+        ]);
 
-        if ($name === '') {
-            return;
-        }
+        $name = trim($this->newName);
 
         $this->authorize('create', Room::class);
 
@@ -231,6 +233,15 @@ return new class extends Component
     public function updateRoom(int $roomId, string $field, string|bool $value): void
     {
         $this->authorize('manage', Room::class);
+
+        if (is_string($value) && in_array($field, ['name', 'description'], true)) {
+            Validator::make(
+                [$field => $value],
+                [$field => $field === 'name'
+                    ? ['nullable', 'string', 'max:100']
+                    : ['nullable', 'string', 'max:2000']],
+            )->validate();
+        }
 
         $room = Room::query()->findOrFail($roomId);
 

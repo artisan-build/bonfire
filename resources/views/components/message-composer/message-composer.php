@@ -17,6 +17,7 @@ use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Validator;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -183,6 +184,17 @@ return new class extends Component
         $this->validate($rules, attributes: $attributes);
     }
 
+    /**
+     * Cap the length of the free-text message body. The body may legitimately
+     * be empty when the message carries only attachments or a poll, so it is
+     * nullable; this only enforces an upper bound to keep unbounded text out of
+     * the database.
+     */
+    private function validateBody(): void
+    {
+        $this->validate(['body' => ['nullable', 'string', 'max:10000']]);
+    }
+
     public function send(): void
     {
         $body = trim($this->body);
@@ -195,6 +207,7 @@ return new class extends Component
             return;
         }
 
+        $this->validateBody();
         $this->validatePendingAttachments();
 
         $this->authorize('post', $this->room);
@@ -311,6 +324,8 @@ return new class extends Component
         if ($member === null) {
             return;
         }
+
+        Validator::make(['body' => $body], ['body' => ['nullable', 'string', 'max:10000']])->validate();
 
         $message = resolve(UpdateScheduledMessage::class)($member, $id, $body, Carbon::parse($newTime));
         if ($message === null) {
@@ -465,6 +480,8 @@ return new class extends Component
         if ($poll === null) {
             return;
         }
+
+        $this->validateBody();
 
         $this->authorize('post', $this->room);
 
