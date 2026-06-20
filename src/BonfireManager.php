@@ -75,6 +75,17 @@ class BonfireManager
         ]);
     }
 
+    public function userChannelName(int|string $id): string
+    {
+        $formatter = config('bonfire.user_channel');
+
+        if (! is_callable($formatter)) {
+            return 'App.Models.User.'.$id;
+        }
+
+        return (string) $formatter($id);
+    }
+
     public function promote(Member $member, BonfireRole $role): Member
     {
         $member->role = $role;

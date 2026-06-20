@@ -25,4 +25,10 @@ return [
     'link_preview_timeout_seconds' => 5,
 
     'resolve_member' => fn () => Bonfire::memberFor(Auth::user()),
+
+    // Formats the broadcast channel name for a host user identifier. The default
+    // matches Laravel's `App.Models.User.{id}` convention so the host's existing
+    // channel authorization keeps working unchanged. Override to namespace
+    // channels per tenant, e.g. fn ($id) => 'tenant.'.$id.
+    'user_channel' => fn ($id) => 'App.Models.User.'.$id,
 ];
