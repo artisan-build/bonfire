@@ -17,7 +17,6 @@ use ArtisanBuild\Bonfire\Policies\MessagePolicy;
 use ArtisanBuild\Bonfire\Policies\RoomPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
-use Livewire\Livewire;
 use Override;
 
 class BonfireServiceProvider extends ServiceProvider
@@ -33,7 +32,6 @@ class BonfireServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadMigrationsFrom(__DIR__.'/../../database/migrations');
-        $this->loadViewsFrom(__DIR__.'/../../resources/views', 'bonfire');
         $this->loadRoutesFrom(__DIR__.'/../../routes/web.php');
 
         // Package models are not auto-discovered by Laravel's policy resolver,
@@ -42,11 +40,6 @@ class BonfireServiceProvider extends ServiceProvider
         Gate::policy(Message::class, MessagePolicy::class);
         Gate::policy(Member::class, MemberPolicy::class);
         Gate::policy(Attachment::class, AttachmentPolicy::class);
-
-        Livewire::addNamespace(
-            namespace: 'bonfire',
-            viewPath: __DIR__.'/../../resources/views/components',
-        );
 
         $this->publishes([
             __DIR__.'/../../config/bonfire.php' => config_path('bonfire.php'),
