@@ -10,6 +10,7 @@ use ArtisanBuild\Bonfire\Actions\SendMessage;
 use ArtisanBuild\Bonfire\Actions\TogglePollVote;
 use ArtisanBuild\Bonfire\Actions\ToggleReaction;
 use ArtisanBuild\Bonfire\Http\Requests\Api\V1\EditMessageRequest;
+use ArtisanBuild\Bonfire\Http\Requests\Api\V1\ListMessagesRequest;
 use ArtisanBuild\Bonfire\Http\Requests\Api\V1\ReactRequest;
 use ArtisanBuild\Bonfire\Http\Requests\Api\V1\SendMessageRequest;
 use ArtisanBuild\Bonfire\Http\Requests\Api\V1\VotePollRequest;
@@ -32,17 +33,25 @@ class MessageController extends Controller
     /**
      * All messages in a room (roots and replies), newest-first, cursor-paginated.
      * Clients thread using each resource's parent_id.
+     *
+     * Pass an `after` message id to forward-poll instead: only messages newer
+     * than that id are returned, ascending (chronological new arrivals).
      */
-    public function index(Room $room): AnonymousResourceCollection
+    public function index(ListMessagesRequest $request, Room $room): AnonymousResourceCollection
     {
         $this->authorize('view', $room);
 
-        $messages = $room->messages()
-            ->with(self::MESSAGE_RELATIONS)
-            ->orderByDesc('id')
-            ->cursorPaginate();
+        $query = $room->messages()->with(self::MESSAGE_RELATIONS);
 
-        return MessageResource::collection($messages);
+        $after = $request->integer('after');
+
+        if ($after > 0) {
+            $query->where('id', '>', $after)->orderBy('id');
+        } else {
+            $query->orderByDesc('id');
+        }
+
+        return MessageResource::collection($query->cursorPaginate());
     }
 
     public function store(SendMessageRequest $request, Room $room, SendMessage $sendMessage): MessageResource

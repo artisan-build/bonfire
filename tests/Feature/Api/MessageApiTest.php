@@ -54,6 +54,58 @@ it('cursor-paginates room messages newest-first with disjoint pages', function (
         ->and([...$page1Ids, ...$page2Ids])->toBe($ids);
 });
 
+it('polls forward returning only messages after the cursor, ascending', function (): void {
+    [$user, $member] = apiActor('Ada');
+    [$room] = apiRoom();
+    $room->addMember($member);
+
+    $ids = seedMessages($room->id, $member->id, 5);
+
+    Sanctum::actingAs($user, ['*']);
+
+    $response = $this->getJson(route('bonfire.api.rooms.messages.index', [$room, 'after' => $ids[2]]));
+    $response->assertOk();
+
+    $returned = collect($response->json('data'))->pluck('id')->all();
+
+    expect($returned)->toBe([$ids[3], $ids[4]])
+        ->and(array_intersect($returned, [$ids[0], $ids[1], $ids[2]]))->toBe([]);
+});
+
+it('returns empty when no messages are newer than the cursor', function (): void {
+    [$user, $member] = apiActor('Ada');
+    [$room] = apiRoom();
+    $room->addMember($member);
+
+    $ids = seedMessages($room->id, $member->id, 5);
+
+    Sanctum::actingAs($user, ['*']);
+
+    $response = $this->getJson(route('bonfire.api.rooms.messages.index', [$room, 'after' => max($ids)]));
+    $response->assertOk();
+
+    expect($response->json('data'))->toBe([]);
+});
+
+it('rejects a non-integer after cursor', function (): void {
+    [$user, $member] = apiActor('Ada');
+    [$room] = apiRoom();
+    $room->addMember($member);
+
+    Sanctum::actingAs($user, ['*']);
+
+    $this->getJson(route('bonfire.api.rooms.messages.index', [$room, 'after' => 'abc']))->assertStatus(422);
+});
+
+it('still forbids forward-polling a private room for a non-member', function (): void {
+    [$user] = apiActor('Outsider');
+    [$room] = apiRoom(RoomType::Private->value);
+
+    Sanctum::actingAs($user, ['*']);
+
+    $this->getJson(route('bonfire.api.rooms.messages.index', [$room, 'after' => 1]))->assertForbidden();
+});
+
 it('includes replies and exposes parent_id for threading', function (): void {
     [$user, $member] = apiActor('Ada');
     [$room] = apiRoom();

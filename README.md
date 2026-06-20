@@ -125,6 +125,10 @@ Bonfire dispatches events for real-time updates. Configure a broadcast driver (R
 - Poll vote updates
 - Call signaling
 
+See [`docs/realtime.md`](docs/realtime.md) for the full event contract (all
+broadcast events, channel names, and payloads), the channel authorization your
+host app must wire, and the HTTP polling fallback.
+
 ## License
 
 MIT
