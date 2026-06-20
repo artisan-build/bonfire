@@ -10,6 +10,7 @@
     },
     "require-dev": {
         "larastan/larastan": "^v3.0.2",
+        "laravel/sanctum": "^4.0",
         "orchestra/testbench": "^11.0",
         "pestphp/pest": "^4.0",
         "laravel/pint": "^1.19.0",

@@ -17,6 +17,17 @@ return [
     'route_prefix' => 'bonfire',
     'route_middleware' => ['web', 'auth'],
 
+    // HTTP/JSON API v1. Opt-in: the host enables it and owns the auth guard
+    // wiring (Sanctum cookie for SPAs, personal access tokens for native apps).
+    // The package never adds laravel/sanctum to its runtime require — the host
+    // installs and configures the guard; the middleware below is fully
+    // host-overridable so the auth stack is a Cloud/host concern.
+    'api' => [
+        'enabled' => env('BONFIRE_API_ENABLED', false),
+        'prefix' => 'bonfire/api',
+        'middleware' => ['auth:sanctum'],
+    ],
+
     'notification_channels' => ['database'],
 
     'user_profile_url' => fn ($member) => null,

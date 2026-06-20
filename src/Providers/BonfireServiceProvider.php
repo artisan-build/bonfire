@@ -34,6 +34,10 @@ class BonfireServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom(__DIR__.'/../../database/migrations');
         $this->loadRoutesFrom(__DIR__.'/../../routes/web.php');
 
+        if (config('bonfire.api.enabled')) {
+            $this->loadRoutesFrom(__DIR__.'/../../routes/api.php');
+        }
+
         // Package models are not auto-discovered by Laravel's policy resolver,
         // so register them explicitly.
         Gate::policy(Room::class, RoomPolicy::class);
