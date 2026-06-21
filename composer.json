@@ -3,6 +3,7 @@
     "description": "A chat package inspired by Campfire from 37 Signals",
     "type": "library",
     "license": "MIT",
+    "version": "0.1.0",
     "require": {
         "php": "^8.2",
         "illuminate/support": "^11.36|^12.0|^13.0",
