@@ -9,8 +9,8 @@ use ArtisanBuild\Bonfire\Models\Attachment;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\Room;
+use Carbon\CarbonInterface;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Carbon;
 
 /**
  * Persist a composed message and its attachments.
@@ -36,7 +36,7 @@ final class SendMessage
         Room $room,
         string $body,
         ?Message $parent,
-        ?Carbon $scheduledAt,
+        ?CarbonInterface $scheduledAt,
         ?array $poll,
         array $uploads,
         array $existingAttachmentIds,
@@ -56,7 +56,7 @@ final class SendMessage
     /**
      * @param  array<string, mixed>|null  $poll
      */
-    private function createMessage(Member $member, Room $room, string $body, ?Message $parent, ?Carbon $scheduledAt, ?array $poll): Message
+    private function createMessage(Member $member, Room $room, string $body, ?Message $parent, ?CarbonInterface $scheduledAt, ?array $poll): Message
     {
         if ($scheduledAt === null && $poll === null) {
             return Bonfire::postAs($member, $room, $body, $parent);

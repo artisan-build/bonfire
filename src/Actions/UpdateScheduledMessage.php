@@ -7,7 +7,7 @@ namespace ArtisanBuild\Bonfire\Actions;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Support\FindOwnedScheduledMessage;
-use Illuminate\Support\Carbon;
+use Carbon\CarbonInterface;
 
 /**
  * Reschedule a scheduled message's body and time.
@@ -18,7 +18,7 @@ use Illuminate\Support\Carbon;
  */
 final class UpdateScheduledMessage
 {
-    public function __invoke(Member $member, int $id, string $body, Carbon $newTime): ?Message
+    public function __invoke(Member $member, int $id, string $body, CarbonInterface $newTime): ?Message
     {
         if ($newTime->isPast()) {
             return null;
