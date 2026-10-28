@@ -12,7 +12,6 @@ return new class extends Migration
     {
         Schema::create('bonfire_members', function (Blueprint $table): void {
             $table->id();
-            $table->unsignedBigInteger('tenant_id')->nullable();
             $table->string('memberable_type');
             $table->unsignedBigInteger('memberable_id');
             $table->string('display_name');
@@ -21,9 +20,8 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->timestamps();
 
-            $table->unique(['memberable_type', 'memberable_id', 'tenant_id'], 'bonfire_members_memberable_tenant_unique');
+            $table->unique(['memberable_type', 'memberable_id'], 'bonfire_members_memberable_unique');
             $table->index(['memberable_type', 'memberable_id']);
-            $table->index('tenant_id');
         });
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ArtisanBuild\Bonfire\Events;
 
+use ArtisanBuild\Bonfire\Facades\Bonfire;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\Room;
@@ -42,7 +43,7 @@ class MemberMentioned implements ShouldBroadcast
             return [];
         }
 
-        return [new PrivateChannel(str_replace('\\', '.', $userType).'.'.$userId)];
+        return [new PrivateChannel(Bonfire::userChannelName($userId))];
     }
 
     public function broadcastAs(): string

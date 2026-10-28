@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace ArtisanBuild\Bonfire\Console\Commands;
 
-use ArtisanBuild\Bonfire\Facades\Bonfire;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Room;
 use Illuminate\Console\Command;
@@ -28,8 +27,7 @@ class CreateRoomCommand extends Command
         $name = (string) $this->argument('name');
         $type = (int) $this->option('type');
 
-        $tenantId = Bonfire::tenantId();
-        $creatorId = $this->resolveCreatorId($tenantId);
+        $creatorId = $this->resolveCreatorId();
 
         if ($creatorId === null) {
             $this->components->error('No member found to set as creator. Create an admin member first or pass --member-id.');
@@ -40,7 +38,6 @@ class CreateRoomCommand extends Command
         $slug = (string) ($this->option('slug') ?: Str::slug($name).'-'.Str::lower(Str::random(6)));
 
         $room = Room::query()->create([
-            'tenant_id' => $tenantId,
             'name' => $name,
             'slug' => $slug,
             'description' => $this->option('description') ?: null,
@@ -53,7 +50,7 @@ class CreateRoomCommand extends Command
         return self::SUCCESS;
     }
 
-    private function resolveCreatorId(?int $tenantId): ?int
+    private function resolveCreatorId(): ?int
     {
         $override = $this->option('member-id');
 
@@ -62,7 +59,6 @@ class CreateRoomCommand extends Command
         }
 
         return Member::query()
-            ->where('tenant_id', $tenantId)
             ->where('role', 'admin')
             ->orderBy('id')
             ->value('id');

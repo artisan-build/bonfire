@@ -11,7 +11,6 @@ use Override;
 
 /**
  * @property int $id
- * @property int|null $tenant_id
  * @property int $room_id
  * @property int $caller_member_id
  * @property int $callee_member_id
@@ -25,7 +24,15 @@ class CallSession extends Model
 {
     protected $table = 'bonfire_call_sessions';
 
-    protected $guarded = [];
+    /** @var list<string> */
+    protected $fillable = [
+        'room_id',
+        'caller_member_id',
+        'callee_member_id',
+        'status',
+        'started_at',
+        'ended_at',
+    ];
 
     /**
      * The room this call session is associated with.

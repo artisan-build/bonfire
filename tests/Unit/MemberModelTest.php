@@ -56,28 +56,3 @@ it('filters with the active scope', function (): void {
 
     expect(Member::query()->active()->count())->toBe(1);
 });
-
-it('filters with the tenant scope', function (): void {
-    $user = TestUser::query()->create(['name' => 'One']);
-    $two = TestUser::query()->create(['name' => 'Two']);
-
-    Member::query()->create([
-        'memberable_type' => $user->getMorphClass(),
-        'memberable_id' => $user->getKey(),
-        'tenant_id' => 5,
-        'display_name' => 'One',
-        'role' => BonfireRole::Member->value,
-        'is_active' => true,
-    ]);
-    Member::query()->create([
-        'memberable_type' => $two->getMorphClass(),
-        'memberable_id' => $two->getKey(),
-        'tenant_id' => null,
-        'display_name' => 'Two',
-        'role' => BonfireRole::Member->value,
-        'is_active' => true,
-    ]);
-
-    expect(Member::query()->forTenant(5)->count())->toBe(1)
-        ->and(Member::query()->forTenant(null)->count())->toBe(1);
-});

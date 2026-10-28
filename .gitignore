@@ -3,7 +3,8 @@
 build
 composer.lock
 coverage
-docs
+docs/*
+!docs/realtime.md
 phpunit.xml
 phpstan.neon
 testbench.yaml

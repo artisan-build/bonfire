@@ -40,10 +40,10 @@ class MarkdownRenderer
         return new HtmlString($highlighted);
     }
 
-    public function render(string $markdown, ?int $tenantId = null): HtmlString
+    public function render(string $markdown): HtmlString
     {
         $chips = [];
-        $withPlaceholders = $this->extractMentions($markdown, $tenantId, $chips);
+        $withPlaceholders = $this->extractMentions($markdown, $chips);
 
         $environment = new Environment([
             'html_input' => 'escape',
@@ -78,7 +78,7 @@ class MarkdownRenderer
      *
      * @param  array<string, string>  $chips
      */
-    private function extractMentions(string $markdown, ?int $tenantId, array &$chips): string
+    private function extractMentions(string $markdown, array &$chips): string
     {
         $chips = [];
         $names = $this->extractMentionNames($markdown);
@@ -89,7 +89,6 @@ class MarkdownRenderer
 
         $members = Member::query()
             ->whereIn('display_name', $names)
-            ->where('tenant_id', $tenantId)
             ->get()
             ->keyBy('display_name');
 
