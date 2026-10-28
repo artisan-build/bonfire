@@ -24,6 +24,10 @@ class RoomMemberController extends Controller
     {
         $this->authorize('manage', Room::class);
 
+        if ($room->access_gate !== null) {
+            $this->authorize('view', $room);
+        }
+
         $target = Member::query()->findOrFail($request->integer('member_id'));
         $actor = $this->actingMember();
 
@@ -38,7 +42,14 @@ class RoomMemberController extends Controller
     {
         $this->authorize('manage', Room::class);
 
-        $removeMemberFromRoom($room, $member);
+        if ($room->access_gate !== null) {
+            $this->authorize('view', $room);
+        }
+
+        $actor = $this->actingMember();
+        abort_if($actor === null, 403);
+
+        $removeMemberFromRoom($room, $member, $actor);
 
         return response()->noContent();
     }

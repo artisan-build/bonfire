@@ -7,6 +7,7 @@ namespace ArtisanBuild\Bonfire\Actions;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
 use ArtisanBuild\Bonfire\Support\SafeMessageHtml;
 use Illuminate\Support\Facades\Cache;
 
@@ -21,6 +22,8 @@ final class AnnounceMeetingStart
 {
     public function __invoke(Room $room, Member $caller): int
     {
+        RoomAccess::authorizeGate($room, $caller);
+
         // If an active meeting already exists, reuse its timestamp — someone may be
         // racing with us. Otherwise record a new start.
         $cacheKey = "bonfire.meeting.{$room->id}.started_at";

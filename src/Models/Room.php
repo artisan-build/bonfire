@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ArtisanBuild\Bonfire\Models;
 
 use ArtisanBuild\Bonfire\Enums\RoomType;
+use ArtisanBuild\Bonfire\Facades\Bonfire;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -20,6 +21,7 @@ use Override;
  * @property string $name
  * @property string $slug
  * @property string|null $description
+ * @property string|null $access_gate
  * @property int $type
  * @property int $created_by
  * @property bool $has_unread
@@ -38,6 +40,7 @@ class Room extends Model
         'name',
         'slug',
         'description',
+        'access_gate',
         'type',
         'created_by',
     ];
@@ -106,6 +109,16 @@ class Room extends Model
 
     public function hasMember(Member $member): bool
     {
+        if ($this->relationLoaded('members')) {
+            return $this->members->contains(fn (Member $roomMember): bool => $roomMember->is($member));
+        }
+
+        $pivot = $this->getRelationValue('pivot');
+
+        if ($pivot instanceof Model && (int) $pivot->getAttribute('member_id') === (int) $member->getKey()) {
+            return true;
+        }
+
         return $this->members()->whereKey($member->getKey())->exists();
     }
 
@@ -136,11 +149,11 @@ class Room extends Model
             return false;
         }
 
-        if (! $this->isPrivate()) {
-            return true;
+        if ($this->isPrivate() && ! $this->hasMember($member)) {
+            return false;
         }
 
-        return $this->hasMember($member);
+        return $this->access_gate === null || Bonfire::allowsGate($this->access_gate, $member);
     }
 
     #[Override]

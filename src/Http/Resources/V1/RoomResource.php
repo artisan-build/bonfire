@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace ArtisanBuild\Bonfire\Http\Resources\V1;
 
+use ArtisanBuild\Bonfire\Http\Resources\V1\Concerns\ResolvesCurrentMember;
 use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Override;
@@ -17,12 +19,17 @@ use Override;
  */
 class RoomResource extends JsonResource
 {
+    use ResolvesCurrentMember;
+
     /**
      * @return array<string, mixed>
      */
     #[Override]
     public function toArray(Request $request): array
     {
+        RoomAccess::authorizeGate($this->resource, $this->currentMember($request));
+        $request->attributes->set('bonfire_authorized_room_'.$this->getKey(), true);
+
         return [
             'id' => $this->id,
             'name' => $this->name,

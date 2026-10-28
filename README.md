@@ -45,6 +45,8 @@ php artisan bonfire:install
 ```
 
 The install command publishes the config file, migrations, and runs `migrate`.
+Run `php artisan migrate` after upgrading an existing installation so rooms gain
+the nullable `access_gate` column.
 
 ### Prepare your User model
 
@@ -181,6 +183,43 @@ Room types use a bitmask system via `RoomType`:
 | `4` | Announcements | Only moderators and admins can post |
 
 Flags can be combined: a private announcements room would have type `5` (1 + 4).
+
+### Named room access gates
+
+A host can put a live access rule in front of a room without creating or removing
+room memberships. Register the rule from a service provider:
+
+```php
+use ArtisanBuild\Bonfire\Facades\Bonfire;
+use ArtisanBuild\Bonfire\Models\Member;
+
+Bonfire::gate('paid', fn (Member $member): bool => $member->memberable->hasActiveSubscription());
+```
+
+Set the registered name when creating or updating a room:
+
+```php
+use ArtisanBuild\Bonfire\Models\Room;
+
+$room = Room::query()->create([
+    'name' => 'Subscribers',
+    'slug' => 'subscribers',
+    'type' => 0,
+    'access_gate' => 'paid',
+    'created_by' => $admin->id,
+]);
+```
+
+The room's usual active-member and public-or-membership rules still apply. The
+named resolver must also return `true`. An unknown gate or a resolver that throws
+denies access. Results are cached once per gate and member during a request, then
+evaluated again on the next request. Gate evaluation never changes room
+memberships.
+
+An ungated public room keeps its existing behavior, including anonymous attachment
+downloads. A gated public room requires a resolved member. Hosts should use
+`$room->isAccessibleBy($member)` for page routes, searches, sidebars, and broadcast
+channel authorization so those surfaces make the same decision as Bonfire's API.
 
 ## Roles
 

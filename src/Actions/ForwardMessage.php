@@ -8,6 +8,8 @@ use ArtisanBuild\Bonfire\Facades\Bonfire;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Str;
 
 /**
@@ -26,6 +28,13 @@ final class ForwardMessage
         /** @var Room|null $sourceRoom */
         $sourceRoom = $source->room;
 
+        if (! $sourceRoom instanceof Room) {
+            throw new AuthorizationException('The source message has no accessible room.');
+        }
+
+        RoomAccess::authorizeGate($sourceRoom, $member);
+        RoomAccess::authorizeGate($target, $member);
+
         /** @var Member|null $sourceMember */
         $sourceMember = $source->member;
 
@@ -36,8 +45,8 @@ final class ForwardMessage
         $noteClean = Str::limit(trim($note), 2000);
         $author = e($sourceMember->display_name ?? 'Unknown');
         $authorAvatar = e($sourceMember->avatar_url ?? 'https://ui-avatars.com/api/?name='.urlencode($sourceMember->display_name ?? '?'));
-        $roomName = e($sourceRoom->name ?? 'unknown');
-        $jumpUrl = $sourceRoom ? route('bonfire.room.show', $sourceRoom).'#m-'.$source->id : '#';
+        $roomName = e($sourceRoom->name);
+        $jumpUrl = route('bonfire.room.show', $sourceRoom).'#m-'.$source->id;
         $timestamp = $source->created_at->format('M j, g:i A');
 
         $html = '';

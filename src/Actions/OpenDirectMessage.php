@@ -7,6 +7,7 @@ namespace ArtisanBuild\Bonfire\Actions;
 use ArtisanBuild\Bonfire\Enums\RoomType;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
 
 /**
  * Open or create the private direct-message room between two members.
@@ -37,6 +38,9 @@ final class OpenDirectMessage
 
             $room->addMember($current);
             $room->addMember($target);
+        } else {
+            RoomAccess::authorizeGate($room, $current);
+            RoomAccess::authorizeGate($room, $target);
         }
 
         return $room;

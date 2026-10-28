@@ -7,6 +7,7 @@ namespace ArtisanBuild\Bonfire\Actions;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
 use ArtisanBuild\Bonfire\Support\SafeMessageHtml;
 
 /**
@@ -19,6 +20,9 @@ final class InviteToMeeting
 {
     public function __invoke(Room $room, Member $caller, Member $target): void
     {
+        RoomAccess::authorizeGate($room, $caller);
+        RoomAccess::authorizeGate($room, $target);
+
         $body = sprintf(
             '📞 %s join the meeting in <strong>#%s</strong>',
             SafeMessageHtml::mention($target->display_name),

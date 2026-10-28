@@ -33,6 +33,12 @@ class MessagePolicy
             return false;
         }
 
+        $room = $message->room;
+
+        if (! $room instanceof Room || ($room->access_gate !== null && ! $room->isAccessibleBy($member))) {
+            return false;
+        }
+
         if ($message->member_id === $member->getKey()) {
             return true;
         }
@@ -48,6 +54,12 @@ class MessagePolicy
         $member = $this->activeMember($user);
 
         if ($member === null || $message->trashed()) {
+            return false;
+        }
+
+        $room = $message->room;
+
+        if (! $room instanceof Room || ($room->access_gate !== null && ! $room->isAccessibleBy($member))) {
             return false;
         }
 

@@ -7,8 +7,11 @@ namespace ArtisanBuild\Bonfire\Actions;
 use ArtisanBuild\Bonfire\Models\CallSession;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
+use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
 use ArtisanBuild\Bonfire\Support\SafeMessageHtml;
 use Carbon\CarbonInterface;
+use Illuminate\Auth\Access\AuthorizationException;
 
 /**
  * Close a call session, recording the appropriate terminal status and posting a
@@ -23,6 +26,14 @@ final class EndCall
 {
     public function __invoke(CallSession $session, Member $current, string $reason): CallSession
     {
+        $room = $session->room;
+
+        if (! $room instanceof Room) {
+            throw new AuthorizationException('This call has no accessible room.');
+        }
+
+        RoomAccess::authorizeGate($room, $current);
+
         $alreadyClosed = in_array($session->status, ['ended', 'declined', 'missed'], true);
 
         if (! $alreadyClosed) {

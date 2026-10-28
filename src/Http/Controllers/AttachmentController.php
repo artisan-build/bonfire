@@ -6,6 +6,7 @@ namespace ArtisanBuild\Bonfire\Http\Controllers;
 
 use ArtisanBuild\Bonfire\Models\Attachment;
 use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
@@ -26,18 +27,7 @@ class AttachmentController extends Controller
             abort(404);
         }
 
-        $resolver = config('bonfire.resolve_member');
-        $member = is_callable($resolver) ? $resolver() : null;
-
-        if (! $room->isPrivate()) {
-            if ($member !== null && ! $member->is_active) {
-                abort(403);
-            }
-        } else {
-            if ($member === null || ! $member->is_active || ! $room->hasMember($member)) {
-                abort(403);
-            }
-        }
+        abort_unless(RoomAccess::allows($room, RoomAccess::currentMember(), allowAnonymousPublic: true), 403);
 
         $disk = Storage::disk($attachment->disk);
 

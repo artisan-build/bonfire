@@ -7,6 +7,7 @@ namespace ArtisanBuild\Bonfire\Actions;
 use ArtisanBuild\Bonfire\Models\CallSession;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
 
 /**
  * Persist a new ringing call session between a caller and callee in a room.
@@ -19,6 +20,9 @@ final class InitiateCall
 {
     public function __invoke(Room $room, Member $caller, Member $callee): CallSession
     {
+        RoomAccess::authorizeGate($room, $caller);
+        RoomAccess::authorizeGate($room, $callee);
+
         return CallSession::query()->create([
             'room_id' => $room->id,
             'caller_member_id' => $caller->id,

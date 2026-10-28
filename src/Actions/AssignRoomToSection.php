@@ -6,6 +6,8 @@ namespace ArtisanBuild\Bonfire\Actions;
 
 use ArtisanBuild\Bonfire\Models\ChannelSection;
 use ArtisanBuild\Bonfire\Models\Member;
+use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -20,6 +22,9 @@ final class AssignRoomToSection
 {
     public function __invoke(Member $member, int $roomId, ?int $sectionId): void
     {
+        $room = Room::query()->findOrFail($roomId);
+        RoomAccess::authorizeGate($room, $member);
+
         $pivotExists = DB::table('bonfire_member_room')
             ->where('member_id', $member->getKey())
             ->where('room_id', $roomId)
