@@ -28,7 +28,7 @@ class MessageController extends Controller
      *
      * @var list<string>
      */
-    private const MESSAGE_RELATIONS = ['member', 'reactions', 'attachments', 'pollVotes'];
+    private const MESSAGE_RELATIONS = ['member', 'room', 'reactions', 'attachments', 'pollVotes'];
 
     /**
      * All messages in a room (roots and replies), newest-first, cursor-paginated.
@@ -40,6 +40,7 @@ class MessageController extends Controller
     public function index(ListMessagesRequest $request, Room $room): AnonymousResourceCollection
     {
         $this->authorize('view', $room);
+        $request->attributes->set('bonfire_authorized_room_'.$room->getKey(), true);
 
         $query = $room->messages()->with(self::MESSAGE_RELATIONS);
 
@@ -79,7 +80,10 @@ class MessageController extends Controller
     {
         $this->authorize('update', $message);
 
-        $editMessage($message, trim((string) $request->input('body')));
+        $member = $this->actingMember();
+        abort_if($member === null, 403);
+
+        $editMessage($message, trim((string) $request->input('body')), $member);
 
         return new MessageResource($message->fresh(self::MESSAGE_RELATIONS));
     }
@@ -88,7 +92,10 @@ class MessageController extends Controller
     {
         $this->authorize('delete', $message);
 
-        $deleteMessage($message);
+        $member = $this->actingMember();
+        abort_if($member === null, 403);
+
+        $deleteMessage($message, $member);
 
         return response()->noContent();
     }

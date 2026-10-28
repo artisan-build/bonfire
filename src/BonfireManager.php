@@ -8,11 +8,32 @@ use ArtisanBuild\Bonfire\Enums\BonfireRole;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\AccessGateEvaluator;
+use ArtisanBuild\Bonfire\Support\AccessGateRegistry;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 
 class BonfireManager
 {
+    public function __construct(
+        private readonly AccessGateRegistry $accessGates,
+        private readonly AccessGateEvaluator $accessGateEvaluator,
+    ) {}
+
+    /**
+     * @param  callable(Member): bool  $resolver
+     */
+    public function gate(string $name, callable $resolver): void
+    {
+        $this->accessGates->register($name, $resolver);
+    }
+
+    public function allowsGate(string $name, Member $member): bool
+    {
+        return $this->accessGateEvaluator->allows($name, $member);
+    }
+
     public function ensureMember(
         Model $memberable,
         string $displayName,
@@ -57,6 +78,8 @@ class BonfireManager
         string $body,
         ?Message $parent = null,
     ): Message {
+        RoomAccess::authorizeGate($room, $member);
+
         $trimmed = trim($body);
 
         if ($trimmed === '') {

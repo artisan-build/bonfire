@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace ArtisanBuild\Bonfire\Jobs;
 
 use ArtisanBuild\Bonfire\Models\LinkPreview;
+use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
+use ArtisanBuild\Bonfire\Models\Room;
 use ArtisanBuild\Bonfire\Support\SafeUrlGuard;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -44,9 +46,9 @@ class FetchLinkPreview implements ShouldQueue
 
     public function handle(SafeUrlGuard $guard): void
     {
-        $message = Message::query()->find($this->messageId);
+        $message = Message::query()->with(['member', 'room'])->find($this->messageId);
 
-        if ($message === null || $message->trashed()) {
+        if ($message === null || $message->trashed() || ! $this->messageIsAccessible($message)) {
             return;
         }
 
@@ -136,6 +138,12 @@ class FetchLinkPreview implements ShouldQueue
 
     public function failed(Throwable $exception): void
     {
+        $message = Message::query()->with(['member', 'room'])->find($this->messageId);
+
+        if ($message === null || ! $this->messageIsAccessible($message)) {
+            return;
+        }
+
         LinkPreview::query()->updateOrCreate(
             ['message_id' => $this->messageId],
             [
@@ -144,6 +152,19 @@ class FetchLinkPreview implements ShouldQueue
                 'failed' => true,
             ],
         );
+    }
+
+    private function messageIsAccessible(Message $message): bool
+    {
+        $member = $message->getRelationValue('member');
+        $room = $message->getRelationValue('room');
+
+        if (! $room instanceof Room) {
+            return false;
+        }
+
+        return $room->access_gate === null
+            || ($member instanceof Member && $room->isAccessibleBy($member));
     }
 
     /**

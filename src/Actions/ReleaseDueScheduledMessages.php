@@ -8,6 +8,8 @@ use ArtisanBuild\Bonfire\Events\MessagePosted;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Collection;
 use InvalidArgumentException;
 
@@ -38,6 +40,7 @@ final class ReleaseDueScheduledMessages
         }
 
         $query = Message::query()
+            ->with(['member', 'room'])
             ->whereNotNull('scheduled_for')
             ->where('scheduled_for', '<=', now());
 
@@ -49,7 +52,22 @@ final class ReleaseDueScheduledMessages
             $query->where('room_id', $room->getKey());
         }
 
-        $due = $query->get();
+        $due = $query->get()->filter(function (Message $message) use ($member): bool {
+            $author = $member ?? $message->getRelationValue('member');
+            $messageRoom = $message->getRelationValue('room');
+
+            if (! $author instanceof Member || ! $messageRoom instanceof Room) {
+                return false;
+            }
+
+            try {
+                RoomAccess::authorizeGate($messageRoom, $author);
+            } catch (AuthorizationException) {
+                return false;
+            }
+
+            return true;
+        })->values();
 
         foreach ($due as $message) {
             $scheduledAt = $message->scheduled_for;

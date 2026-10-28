@@ -6,6 +6,7 @@ namespace ArtisanBuild\Bonfire\Actions;
 
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -18,6 +19,8 @@ final class ToggleRoomStar
 {
     public function __invoke(Member $member, Room $room): bool
     {
+        RoomAccess::authorizeGate($room, $member);
+
         $exists = DB::table('bonfire_starred_rooms')
             ->where('member_id', $member->getKey())
             ->where('room_id', $room->getKey())

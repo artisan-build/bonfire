@@ -7,6 +7,7 @@ namespace ArtisanBuild\Bonfire\Actions;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -20,6 +21,8 @@ final class AnnounceMeetingEnd
 {
     public function __invoke(Room $room, Member $caller, int $totalParticipants): void
     {
+        RoomAccess::authorizeGate($room, $caller);
+
         $cacheKey = "bonfire.meeting.{$room->id}.started_at";
         $startedAt = Cache::get($cacheKey);
         Cache::forget($cacheKey);

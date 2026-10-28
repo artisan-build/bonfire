@@ -24,6 +24,8 @@ class UnreadTracker
 
     public function markRead(Room $room, ?Member $member): void
     {
+        RoomAccess::authorizeGate($room, $member);
+
         $timestamp = now();
 
         if ($room->isPrivate() && $member !== null) {
@@ -50,6 +52,8 @@ class UnreadTracker
 
     public function lastReadAt(Room $room, ?Member $member): ?CarbonInterface
     {
+        RoomAccess::authorizeGate($room, $member);
+
         if ($room->isPrivate() && $member !== null) {
             $pivot = $room->members()
                 ->whereKey($member->getKey())
@@ -80,6 +84,8 @@ class UnreadTracker
 
     public function hasUnread(Room $room, ?Member $member): bool
     {
+        RoomAccess::authorizeGate($room, $member);
+
         $lastRead = $this->lastReadAt($room, $member);
 
         $query = Message::query()

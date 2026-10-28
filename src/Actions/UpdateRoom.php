@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace ArtisanBuild\Bonfire\Actions;
 
 use ArtisanBuild\Bonfire\Enums\RoomType;
+use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
 
 /**
  * Apply a single-field update to a room from the admin panel.
@@ -18,8 +20,14 @@ use ArtisanBuild\Bonfire\Models\Room;
  */
 final class UpdateRoom
 {
-    public function __invoke(Room $room, string $field, string|bool $value): bool
+    public function __invoke(Room $room, string $field, string|bool $value, ?Member $member = null): bool
     {
+        if ($member === null) {
+            RoomAccess::authorizeGate($room);
+        } else {
+            RoomAccess::authorizeGate($room, $member);
+        }
+
         if (in_array($field, ['name', 'description'], true)) {
             $room->setAttribute($field, is_string($value) ? (trim($value) ?: null) : null);
             $room->save();

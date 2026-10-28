@@ -6,6 +6,7 @@ namespace ArtisanBuild\Bonfire\Actions;
 
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
 
 /**
  * Add a member to a room, recording the acting member as the adder.
@@ -17,6 +18,12 @@ final class AddMemberToRoom
 {
     public function __invoke(Room $room, Member $member, ?Member $addedBy = null): void
     {
+        if ($addedBy === null) {
+            RoomAccess::authorizeGate($room);
+        } else {
+            RoomAccess::authorizeGate($room, $addedBy);
+        }
+
         $room->addMember($member, $addedBy);
     }
 }

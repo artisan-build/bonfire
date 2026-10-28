@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace ArtisanBuild\Bonfire\Actions;
 
+use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
 
 /**
  * Restore a soft-deleted channel room.
@@ -14,8 +16,14 @@ use ArtisanBuild\Bonfire\Models\Room;
  */
 final class RestoreChannel
 {
-    public function __invoke(Room $room): void
+    public function __invoke(Room $room, ?Member $member = null): void
     {
+        if ($member === null) {
+            RoomAccess::authorizeGate($room);
+        } else {
+            RoomAccess::authorizeGate($room, $member);
+        }
+
         if (! $room->trashed()) {
             return;
         }

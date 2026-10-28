@@ -26,7 +26,9 @@ class RoomController extends Controller
 
         $rooms = $member->rooms()
             ->orderBy('bonfire_rooms.name')
-            ->get();
+            ->get()
+            ->filter(fn (Room $room): bool => $room->isAccessibleBy($member))
+            ->values();
 
         return RoomResource::collection($rooms);
     }

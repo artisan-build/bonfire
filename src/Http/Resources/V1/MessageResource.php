@@ -7,6 +7,9 @@ namespace ArtisanBuild\Bonfire\Http\Resources\V1;
 use ArtisanBuild\Bonfire\Http\Resources\V1\Concerns\ResolvesCurrentMember;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
+use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Override;
@@ -31,6 +34,18 @@ class MessageResource extends JsonResource
     public function toArray(Request $request): array
     {
         $member = $this->currentMember($request);
+        $room = $this->room;
+
+        if (! $room instanceof Room) {
+            throw new AuthorizationException('This message has no accessible room.');
+        }
+
+        $roomKey = 'bonfire_authorized_room_'.$room->getKey();
+
+        if ($request->attributes->get($roomKey) !== true) {
+            RoomAccess::authorizeGate($room, $member);
+            $request->attributes->set($roomKey, true);
+        }
 
         return [
             'id' => $this->id,

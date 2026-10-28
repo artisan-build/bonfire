@@ -9,6 +9,7 @@ use ArtisanBuild\Bonfire\Models\Attachment;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
 use Carbon\CarbonInterface;
 use Illuminate\Http\UploadedFile;
 
@@ -42,6 +43,8 @@ final class SendMessage
         array $existingAttachmentIds,
         bool $alsoSendToChannel,
     ): Message {
+        RoomAccess::authorizeGate($room, $member);
+
         $message = $this->createMessage($member, $room, $body, $parent, $scheduledAt, $poll);
 
         $this->storeAttachments($member, $message, $uploads, $existingAttachmentIds);

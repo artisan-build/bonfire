@@ -6,6 +6,8 @@ namespace ArtisanBuild\Bonfire\Support;
 
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
+use ArtisanBuild\Bonfire\Models\Room;
+use Illuminate\Auth\Access\AuthorizationException;
 
 /**
  * Locate a single scheduled message that belongs to the given member and is
@@ -17,11 +19,30 @@ final class FindOwnedScheduledMessage
 {
     public function __invoke(Member $member, int $id): ?Message
     {
-        return Message::query()
+        $message = Message::query()
+            ->with('room')
             ->where('id', $id)
             ->where('member_id', $member->getKey())
             ->whereNotNull('scheduled_for')
             ->where('scheduled_for', '>', now())
             ->first();
+
+        if ($message === null) {
+            return null;
+        }
+
+        $room = $message->getRelationValue('room');
+
+        if (! $room instanceof Room) {
+            return null;
+        }
+
+        try {
+            RoomAccess::authorizeGate($room, $member);
+        } catch (AuthorizationException) {
+            return null;
+        }
+
+        return $message;
     }
 }

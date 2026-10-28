@@ -125,6 +125,7 @@ The package emits on channel **names**; the host must authorize those channels i
 ```php
 use App\Models\User;
 use ArtisanBuild\Bonfire\Facades\Bonfire;
+use ArtisanBuild\Bonfire\Models\Room;
 use Illuminate\Support\Facades\Broadcast;
 
 // Private user channel — must match config('bonfire.user_channel').
@@ -137,8 +138,9 @@ Broadcast::channel('App.Models.User.{userId}', function (User $user, int $userId
 // presence roster. Returning a falsy value denies the subscription.
 Broadcast::channel('bonfire.room.{roomId}', function (User $user, int $roomId) {
     $member = Bonfire::memberFor($user);
+    $room = Room::query()->find($roomId);
 
-    if ($member === null || ! $member->rooms()->whereKey($roomId)->exists()) {
+    if ($member === null || $room === null || ! $room->isAccessibleBy($member)) {
         return false;
     }
 
@@ -150,8 +152,10 @@ Broadcast::channel('bonfire.room.{roomId}', function (User $user, int $roomId) {
 });
 ```
 
-The exact membership/identity lookup is the host's call — adapt `memberFor` and
-the room-membership check to your schema. The contract only requires that:
+The exact identity lookup is the host's call. Keep `Room::isAccessibleBy()` in the
+presence callback: it applies active-member status, public or private membership,
+and any named room access gate. Replacing it with a pivot-only check can admit a
+member whose named gate now denies access. The contract requires that:
 
 - the **private** callback authorizes the channel name produced by
   `config('bonfire.user_channel')`, and

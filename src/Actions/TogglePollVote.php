@@ -8,6 +8,9 @@ use ArtisanBuild\Bonfire\Events\PollVoted;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\PollVote;
+use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
+use Illuminate\Auth\Access\AuthorizationException;
 
 /**
  * Cast, switch, or remove a member's poll vote on a message.
@@ -21,6 +24,14 @@ final class TogglePollVote
 {
     public function __invoke(Member $member, Message $message, int $optionIndex): void
     {
+        $room = $message->room;
+
+        if (! $room instanceof Room) {
+            throw new AuthorizationException('This message has no accessible room.');
+        }
+
+        RoomAccess::authorizeGate($room, $member);
+
         $existing = PollVote::query()
             ->where('message_id', $message->getKey())
             ->where('member_id', $member->getKey())

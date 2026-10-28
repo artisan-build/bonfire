@@ -230,6 +230,23 @@ class Message extends Model
 
         $members = $members->unique('id')->values();
 
+        /** @var Room|null $room */
+        $room = $this->room;
+
+        if ($room === null) {
+            return;
+        }
+
+        if ($room->access_gate !== null && $room->isPrivate()) {
+            $room->loadMissing('members');
+        }
+
+        if ($room->access_gate !== null) {
+            $members = $members
+                ->filter(fn (Member $member): bool => $room->isAccessibleBy($member))
+                ->values();
+        }
+
         if ($members->isEmpty()) {
             return;
         }
@@ -246,10 +263,7 @@ class Message extends Model
 
         /** @var Member|null $author */
         $author = $this->member;
-        /** @var Room|null $room */
-        $room = $this->room;
-
-        if ($author !== null && $room !== null) {
+        if ($author !== null) {
             foreach ($members as $member) {
                 event(new MemberMentioned($member, $author, $this, $room));
             }
@@ -264,6 +278,15 @@ class Message extends Model
 
         // Forwarded messages embed a synthetic "Jump to original" link — never unfurl.
         if (str_contains((string) $this->body, 'data-bonfire-forward')) {
+            return;
+        }
+
+        $room = $this->room;
+        $author = $this->member;
+
+        if ($room instanceof Room
+            && $room->access_gate !== null
+            && (! $author instanceof Member || ! $room->isAccessibleBy($author))) {
             return;
         }
 

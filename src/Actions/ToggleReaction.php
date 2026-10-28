@@ -7,6 +7,9 @@ namespace ArtisanBuild\Bonfire\Actions;
 use ArtisanBuild\Bonfire\Events\MessageEdited;
 use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
+use ArtisanBuild\Bonfire\Models\Room;
+use ArtisanBuild\Bonfire\Support\RoomAccess;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -23,6 +26,14 @@ final class ToggleReaction
 {
     public function __invoke(Member $member, Message $message, string $emoji): void
     {
+        $room = $message->room;
+
+        if (! $room instanceof Room) {
+            throw new AuthorizationException('This message has no accessible room.');
+        }
+
+        RoomAccess::authorizeGate($room, $member);
+
         $existing = DB::table('bonfire_reactions')
             ->where('message_id', $message->getKey())
             ->where('member_id', $member->getKey())
