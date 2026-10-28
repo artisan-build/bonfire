@@ -20,7 +20,12 @@ class ChannelSection extends Model
 {
     protected $table = 'bonfire_channel_sections';
 
-    protected $guarded = [];
+    /** @var list<string> */
+    protected $fillable = [
+        'member_id',
+        'name',
+        'position',
+    ];
 
     /**
      * The member who owns this channel section.

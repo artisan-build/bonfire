@@ -17,7 +17,17 @@ class LinkPreview extends Model
 
     protected $table = 'bonfire_link_previews';
 
-    protected $guarded = [];
+    /** @var list<string> */
+    protected $fillable = [
+        'message_id',
+        'url',
+        'title',
+        'description',
+        'image_url',
+        'site_name',
+        'fetched_at',
+        'failed',
+    ];
 
     /**
      * The message this link preview belongs to.

@@ -14,4 +14,9 @@
             <directory suffix=".php">./src</directory>
         </include>
     </source>
+    <php>
+        <env name="BROADCAST_CONNECTION" value="null"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+    </php>
 </phpunit>

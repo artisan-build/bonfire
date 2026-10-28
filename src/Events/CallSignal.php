@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ArtisanBuild\Bonfire\Events;
 
+use ArtisanBuild\Bonfire\Facades\Bonfire;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
@@ -45,7 +46,7 @@ class CallSignal implements ShouldBroadcast
 
     public function broadcastOn(): array
     {
-        return [new PrivateChannel('App.Models.User.'.$this->targetUserId)];
+        return [new PrivateChannel(Bonfire::userChannelName($this->targetUserId))];
     }
 
     public function broadcastAs(): string

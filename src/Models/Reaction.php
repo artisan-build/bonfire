@@ -6,10 +6,17 @@ namespace ArtisanBuild\Bonfire\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 use Override;
 
 /**
- * Represents an emoji reaction on a message.
+ * Represents an emoji reaction on a message. Composite key (message_id,
+ * member_id, emoji) lets a single member react with multiple emoji.
+ *
+ * @property int $message_id
+ * @property int $member_id
+ * @property string $emoji
+ * @property Carbon|null $created_at
  */
 class Reaction extends Model
 {
@@ -22,6 +29,8 @@ class Reaction extends Model
     protected $primaryKey = null;
 
     protected $guarded = [];
+
+    protected $fillable = ['message_id', 'member_id', 'emoji', 'created_at'];
 
     /**
      * The message this reaction belongs to.

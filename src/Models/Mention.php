@@ -21,7 +21,12 @@ class Mention extends Model
 
     protected $primaryKey = null;
 
-    protected $guarded = [];
+    /** @var list<string> */
+    protected $fillable = [
+        'message_id',
+        'member_id',
+        'created_at',
+    ];
 
     /**
      * The message this mention appears in.

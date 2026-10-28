@@ -27,7 +27,16 @@ class Attachment extends Model
 
     protected $table = 'bonfire_attachments';
 
-    protected $guarded = [];
+    /** @var list<string> */
+    protected $fillable = [
+        'message_id',
+        'disk',
+        'path',
+        'filename',
+        'mime_type',
+        'size',
+        'created_at',
+    ];
 
     /**
      * The message this attachment belongs to.

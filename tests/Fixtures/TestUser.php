@@ -7,9 +7,11 @@ namespace ArtisanBuild\Bonfire\Tests\Fixtures;
 use ArtisanBuild\Bonfire\Traits\HasBonfireProfile;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
+use Laravel\Sanctum\HasApiTokens;
 
 class TestUser extends Model implements Authenticatable
 {
+    use HasApiTokens;
     use HasBonfireProfile;
 
     protected $table = 'test_users';

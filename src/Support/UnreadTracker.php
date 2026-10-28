@@ -9,11 +9,14 @@ use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\Room;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
 
 /**
- * Tracks last-read timestamps for rooms, session-backed for public rooms and
- * pivot-backed for private rooms.
+ * Tracks last-read timestamps for rooms. Private rooms use the member pivot,
+ * public rooms with a member use the bonfire_room_reads table so the marker
+ * follows the member across devices, and the anonymous (null member) public
+ * case falls back to the session.
  */
 class UnreadTracker
 {
@@ -27,6 +30,15 @@ class UnreadTracker
             $room->members()->updateExistingPivot($member->getKey(), [
                 'last_read_at' => $timestamp,
             ]);
+
+            return;
+        }
+
+        if ($member !== null) {
+            DB::table('bonfire_room_reads')->updateOrInsert(
+                ['member_id' => $member->getKey(), 'room_id' => $room->getKey()],
+                ['last_read_at' => $timestamp],
+            );
 
             return;
         }
@@ -50,6 +62,15 @@ class UnreadTracker
             }
 
             return $value instanceof CarbonInterface ? $value : Date::parse((string) $value);
+        }
+
+        if ($member !== null) {
+            $value = DB::table('bonfire_room_reads')
+                ->where('member_id', $member->getKey())
+                ->where('room_id', $room->getKey())
+                ->value('last_read_at');
+
+            return $value === null ? null : Date::parse((string) $value);
         }
 
         $stored = $this->sessionStore()[$room->getKey()] ?? null;

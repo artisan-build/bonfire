@@ -22,7 +22,13 @@ class PollVote extends Model
 
     protected $table = 'bonfire_poll_votes';
 
-    protected $guarded = [];
+    /** @var list<string> */
+    protected $fillable = [
+        'message_id',
+        'member_id',
+        'option_index',
+        'created_at',
+    ];
 
     /**
      * The message this vote was cast on.

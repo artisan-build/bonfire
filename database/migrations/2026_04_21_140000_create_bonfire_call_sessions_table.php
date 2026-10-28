@@ -12,7 +12,6 @@ return new class extends Migration
     {
         Schema::create('bonfire_call_sessions', function (Blueprint $table): void {
             $table->id();
-            $table->unsignedBigInteger('tenant_id')->nullable();
             $table->unsignedBigInteger('room_id');
             $table->unsignedBigInteger('caller_member_id');
             $table->unsignedBigInteger('callee_member_id');

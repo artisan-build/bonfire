@@ -24,7 +24,6 @@ use Override;
  * Represents a chat message in a Bonfire room.
  *
  * @property int $id
- * @property int|null $tenant_id
  * @property int $room_id
  * @property int $member_id
  * @property int|null $parent_id
@@ -43,7 +42,17 @@ class Message extends Model
 
     protected $table = 'bonfire_messages';
 
-    protected $guarded = [];
+    /** @var list<string> */
+    protected $fillable = [
+        'room_id',
+        'member_id',
+        'parent_id',
+        'body',
+        'poll',
+        'scheduled_for',
+        'pinned_at',
+        'pinned_by_member_id',
+    ];
 
     #[Override]
     protected static function booted(): void
@@ -193,7 +202,6 @@ class Message extends Model
             $members = $members->merge(
                 Member::query()
                     ->whereIn('display_name', $explicit)
-                    ->where('tenant_id', $this->tenant_id)
                     ->where('id', '!=', $this->member_id)
                     ->get(),
             );
@@ -203,7 +211,6 @@ class Message extends Model
         foreach ($broadcast as $token) {
             $t = strtolower($token);
             $query = Member::query()
-                ->where('tenant_id', $this->tenant_id)
                 ->where('is_active', true)
                 ->where('id', '!=', $this->member_id);
 
@@ -284,7 +291,6 @@ class Message extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'scheduled_for' => 'datetime',
             'pinned_at' => 'datetime',
             'poll' => 'array',

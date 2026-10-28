@@ -17,22 +17,44 @@ function aMessage(): array
     return [$message, $member];
 }
 
-it('enforces one reaction per member per message', function (): void {
+it('enforces one reaction per member per message per emoji', function (): void {
     [$message, $member] = aMessage();
 
     Reaction::query()->create([
         'message_id' => $message->id,
         'member_id' => $member->id,
+        'emoji' => '👍',
         'created_at' => now(),
     ]);
 
     $duplicate = fn () => Reaction::query()->create([
         'message_id' => $message->id,
         'member_id' => $member->id,
+        'emoji' => '👍',
         'created_at' => now(),
     ]);
 
     expect($duplicate)->toThrow(QueryException::class);
+});
+
+it('allows the same member to react with a different emoji', function (): void {
+    [$message, $member] = aMessage();
+
+    Reaction::query()->create([
+        'message_id' => $message->id,
+        'member_id' => $member->id,
+        'emoji' => '👍',
+        'created_at' => now(),
+    ]);
+
+    Reaction::query()->create([
+        'message_id' => $message->id,
+        'member_id' => $member->id,
+        'emoji' => '🎉',
+        'created_at' => now(),
+    ]);
+
+    expect($message->reactions()->count())->toBe(2);
 });
 
 it('tracks reactions via the message relation', function (): void {
@@ -41,6 +63,7 @@ it('tracks reactions via the message relation', function (): void {
     Reaction::query()->create([
         'message_id' => $message->id,
         'member_id' => $member->id,
+        'emoji' => '👍',
         'created_at' => now(),
     ]);
 
@@ -53,6 +76,7 @@ it('does not count reactions on deleted messages', function (): void {
     Reaction::query()->create([
         'message_id' => $message->id,
         'member_id' => $member->id,
+        'emoji' => '👍',
         'created_at' => now(),
     ]);
 

@@ -18,9 +18,8 @@ use Override;
  * Represents a workspace member in Bonfire.
  *
  * @property int $id
- * @property int|null $tenant_id
- * @property string $memberable_type
- * @property int $memberable_id
+ * @property string|null $memberable_type
+ * @property int|null $memberable_id
  * @property string $display_name
  * @property string|null $avatar_url
  * @property BonfireRole $role
@@ -30,6 +29,8 @@ use Override;
  * @property string|null $timezone
  * @property string|null $status_emoji
  * @property string|null $status_text
+ * @property string|null $status_game
+ * @property string|null $status_game_image
  * @property Carbon|null $status_expires_at
  * @property Carbon $created_at
  * @property Carbon $updated_at
@@ -40,7 +41,23 @@ class Member extends Model
 
     protected $table = 'bonfire_members';
 
-    protected $guarded = [];
+    /** @var list<string> */
+    protected $fillable = [
+        'memberable_type',
+        'memberable_id',
+        'display_name',
+        'avatar_url',
+        'role',
+        'is_active',
+        'is_away',
+        'phone',
+        'timezone',
+        'status_emoji',
+        'status_text',
+        'status_game',
+        'status_game_image',
+        'status_expires_at',
+    ];
 
     /**
      * The polymorphic host model (user, bot, etc.) that this member represents.
@@ -100,17 +117,6 @@ class Member extends Model
         return $query->where('is_active', true);
     }
 
-    /**
-     * Scope query to a specific tenant.
-     *
-     * @param  Builder<self>  $query
-     * @return Builder<self>
-     */
-    protected function scopeForTenant(Builder $query, ?int $tenantId): Builder
-    {
-        return $query->where('tenant_id', $tenantId);
-    }
-
     #[Override]
     protected function casts(): array
     {
@@ -119,7 +125,6 @@ class Member extends Model
             'is_away' => 'boolean',
             'status_expires_at' => 'datetime',
             'role' => BonfireRole::class,
-            'tenant_id' => 'integer',
         ];
     }
 }
