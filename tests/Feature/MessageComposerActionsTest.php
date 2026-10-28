@@ -157,6 +157,36 @@ it('stores an uploaded file as an attachment', function (): void {
     Storage::disk('public')->assertExists($stored->path);
 });
 
+it('records zero when an uploaded file size is unreadable', function (): void {
+    Storage::fake('public');
+
+    $path = tempnam(sys_get_temp_dir(), 'bonfire-upload-');
+
+    if ($path === false) {
+        throw new RuntimeException('Unable to create a temporary upload.');
+    }
+
+    file_put_contents($path, 'contents');
+
+    $upload = new class($path, 'notes.txt', 'text/plain', null, true) extends UploadedFile
+    {
+        public function getSize(): false
+        {
+            return false;
+        }
+    };
+
+    try {
+        $message = app(SendMessage::class)(
+            mcaMember('Ada'), mcaRoom(), 'with upload', null, null, null, [$upload], [], false,
+        );
+
+        expect(Attachment::query()->where('message_id', $message->id)->value('size'))->toBe(0);
+    } finally {
+        unlink($path);
+    }
+});
+
 it('posts a second channel copy for a reply when also-send-to-channel and not scheduled', function (): void {
     $room = mcaRoom();
     $member = mcaMember('Ada');

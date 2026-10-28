@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use ArtisanBuild\Bonfire\Facades\Bonfire;
+use Illuminate\Support\Env;
 use Illuminate\Support\Facades\Auth;
 
 return [
@@ -23,7 +24,7 @@ return [
     // installs and configures the guard; the middleware below is fully
     // host-overridable so the auth stack is a Cloud/host concern.
     'api' => [
-        'enabled' => env('BONFIRE_API_ENABLED', false),
+        'enabled' => Env::get('BONFIRE_API_ENABLED', false),
         'prefix' => 'bonfire/api',
         'middleware' => ['auth:sanctum'],
     ],

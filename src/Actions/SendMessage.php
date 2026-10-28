@@ -97,13 +97,15 @@ final class SendMessage
                 continue;
             }
 
+            $size = $upload->getSize();
+
             Attachment::query()->create([
                 'message_id' => $message->id,
                 'disk' => $disk,
                 'path' => $path,
                 'filename' => $this->sanitizeFilename($upload->getClientOriginalName()),
                 'mime_type' => $upload->getMimeType() ?? 'application/octet-stream',
-                'size' => $upload->getSize() ?? 0,
+                'size' => $size === false ? 0 : $size,
                 'created_at' => now(),
             ]);
         }

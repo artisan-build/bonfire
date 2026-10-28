@@ -8,6 +8,7 @@ use ArtisanBuild\Bonfire\Events\CallSignal;
 use ArtisanBuild\Bonfire\Events\MemberMentioned;
 use ArtisanBuild\Bonfire\Facades\Bonfire;
 use ArtisanBuild\Bonfire\Models\CallSession;
+use ArtisanBuild\Bonfire\Models\Member;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Tests\Fixtures\TestUser;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
@@ -78,4 +79,14 @@ it('routes MemberMentioned through the user_channel helper', function (): void {
 
     expect($event->broadcastOn()[0]->name)
         ->toBe('private-tenant.'.$target->memberable_id);
+});
+
+it('does not broadcast a mention without a backing host model', function (): void {
+    $author = Bonfire::ensureMember(TestUser::query()->create(['name' => 'Ada']), 'Ada');
+    $room = aRoom();
+    $message = new Message;
+
+    $event = new MemberMentioned(new Member, $author, $message, $room);
+
+    expect($event->broadcastOn())->toBe([]);
 });

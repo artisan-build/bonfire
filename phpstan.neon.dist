@@ -8,7 +8,7 @@ parameters:
         - config
     excludePaths:
         analyseAndScan:
-            - vendor/orchestra/testbench-core/laravel/vendor
+            - vendor/orchestra/testbench-core/laravel/vendor (?)
         analyse:
             - src/**/*Test.php
     ignoreErrors:

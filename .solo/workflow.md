@@ -20,8 +20,6 @@ As of 2026-10-28 THIS repo is the canonical home. Before that, the live code was
 - merge method: `gh pr merge --squash --delete-branch`, then confirm with `gh pr view <n> --json state`.
 
 ## Hard gate (verified on the committed SHA, clean tree)
-- setup: `mkdir -p vendor/orchestra/testbench-core/laravel/vendor` (the imported PHPStan config excludes this
-  Testbench path and PHPStan requires excluded literal paths to exist)
 - command: `composer ready` (see composer.json scripts; at minimum pint --test, phpstan, pest)
 - extra suites: none
 - monorepo: no

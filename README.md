@@ -30,7 +30,7 @@ anything) and talk to the engine through the PHP API or the HTTP/JSON API.
 
 ## Requirements
 
-- PHP 8.2+
+- PHP 8.3+
 - Laravel 11.36+, 12.x, or 13.x
 - `league/commonmark` (Markdown rendering)
 

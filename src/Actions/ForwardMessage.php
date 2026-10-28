@@ -49,9 +49,7 @@ final class ForwardMessage
         $html .= '<img src="'.$authorAvatar.'" alt="" class="bonfire-forward-avatar">';
         $html .= '<span class="bonfire-forward-author">'.$author.'</span>';
         $html .= '<span class="bonfire-forward-meta">in #'.$roomName;
-        if ($timestamp !== '') {
-            $html .= ' · '.e($timestamp);
-        }
+        $html .= ' · '.e($timestamp);
         $html .= '</span>';
         $html .= '</div>';
         $html .= '<div class="bonfire-forward-body">'.nl2br(e($quotedBody)).'</div>';

@@ -18,8 +18,8 @@ use Override;
  * Represents a workspace member in Bonfire.
  *
  * @property int $id
- * @property string $memberable_type
- * @property int $memberable_id
+ * @property string|null $memberable_type
+ * @property int|null $memberable_id
  * @property string $display_name
  * @property string|null $avatar_url
  * @property BonfireRole $role

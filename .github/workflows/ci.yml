@@ -49,9 +49,6 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
-      - name: Prepare Testbench analysis directory
-        run: mkdir -p vendor/orchestra/testbench-core/laravel/vendor
-
       - name: Run PHPStan
         run: composer stan
 
