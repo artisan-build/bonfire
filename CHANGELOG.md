@@ -5,6 +5,27 @@ All notable changes to `artisan-build/bonfire` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-10-28
+
+### Added
+
+- Standalone CI for the canonical `artisan-build/bonfire` repository, with Pint,
+  PHPStan, Pest, and lowest-supported-dependency jobs.
+- Named room access gates registered through `Bonfire::gate()`. Gate checks are
+  live, fail closed when missing or broken, and apply alongside normal room
+  access rules without changing memberships.
+- A host-facing member badge resolver registered through
+  `Bonfire::resolveBadgesUsing()`. Normalized, escaped badges are available from
+  `Member::badges()` and API v1 member resources.
+
+### Changed
+
+- `bonfire.bulk_mentions` can disable `@channel`, `@here`, and `@everyone`
+  fan-out, mention records, and special rendering. It defaults to `true` for
+  compatibility.
+- This standalone repository is now Bonfire's canonical source and release
+  home.
+
 ## [0.1.0] - 2026-06-21
 
 This release marks the **headless boundary**: Bonfire is now a standalone chat
@@ -48,4 +69,5 @@ shipped UI.
   `bonfire.room.show`). Only the attachment download route
   (`bonfire.attachments.show`) plus the opt-in HTTP/JSON API remain.
 
+[0.2.0]: https://github.com/artisan-build/bonfire/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/artisan-build/bonfire/releases/tag/v0.1.0

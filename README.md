@@ -8,7 +8,7 @@ The presentation layer is the host application's concern.
 
 > [!WARNING]
 > Bonfire is under active development and has not reached a stable release.
-> The `0.1.0` release marks the headless boundary: as of this version the
+> The `0.1.0` release marked the headless boundary: as of that version the
 > package ships no views, Livewire, or Flux. Breaking changes may occur in any
 > release until 1.0. Pin to a specific version if you use this in production.
 
@@ -108,6 +108,34 @@ use ArtisanBuild\Bonfire\Facades\Bonfire;
 $member  = Bonfire::memberFor($user);
 $message = Bonfire::postAs($member, $room, 'Hello, world');
 ```
+
+### Member badges
+
+Hosts can add links or labels to member profiles without adding columns to
+Bonfire's tables. Register one resolver from a service provider:
+
+```php
+use ArtisanBuild\Bonfire\Facades\Bonfire;
+use ArtisanBuild\Bonfire\Models\Member;
+
+Bonfire::resolveBadgesUsing(fn (Member $member): array => [
+    [
+        'label' => 'I Can Help',
+        'url' => route('partners.show', $member->memberable),
+        'title' => 'View partner profile',
+    ],
+]);
+```
+
+Each badge needs string `label` and `url` values. The string `title` is optional
+and resolves to `null` when omitted. Use `$member->badges()` in PHP. API v1 adds
+the same normalized list as `badges` on every member resource, including members
+nested in messages.
+
+Bonfire preserves resolver order and HTML-escapes every returned string. Invalid
+entries are skipped. An unregistered resolver, a non-iterable result, or a
+resolver exception produces an empty list. Bonfire does not store badge data or
+request the returned URLs.
 
 ### 2. HTTP/JSON API v1 (opt-in)
 

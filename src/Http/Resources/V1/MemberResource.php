@@ -30,6 +30,7 @@ class MemberResource extends JsonResource
             'display_name' => $this->display_name,
             'avatar_url' => $this->avatar_url,
             'role' => $this->role->value,
+            'badges' => $this->badges(),
         ];
     }
 }

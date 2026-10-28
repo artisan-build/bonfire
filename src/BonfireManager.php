@@ -10,6 +10,8 @@ use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\Room;
 use ArtisanBuild\Bonfire\Support\AccessGateEvaluator;
 use ArtisanBuild\Bonfire\Support\AccessGateRegistry;
+use ArtisanBuild\Bonfire\Support\MemberBadgeRegistry;
+use ArtisanBuild\Bonfire\Support\MemberBadgeResolver;
 use ArtisanBuild\Bonfire\Support\RoomAccess;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
@@ -19,6 +21,8 @@ class BonfireManager
     public function __construct(
         private readonly AccessGateRegistry $accessGates,
         private readonly AccessGateEvaluator $accessGateEvaluator,
+        private readonly MemberBadgeRegistry $memberBadges,
+        private readonly MemberBadgeResolver $memberBadgeResolver,
     ) {}
 
     /**
@@ -32,6 +36,22 @@ class BonfireManager
     public function allowsGate(string $name, Member $member): bool
     {
         return $this->accessGateEvaluator->allows($name, $member);
+    }
+
+    /**
+     * @param  callable(Member): mixed  $resolver
+     */
+    public function resolveBadgesUsing(callable $resolver): void
+    {
+        $this->memberBadges->register($resolver);
+    }
+
+    /**
+     * @return list<array{label: string, url: string, title: string|null}>
+     */
+    public function badgesFor(Member $member): array
+    {
+        return $this->memberBadgeResolver->resolve($member);
     }
 
     public function ensureMember(

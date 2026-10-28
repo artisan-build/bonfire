@@ -17,6 +17,8 @@ use ArtisanBuild\Bonfire\Policies\MessagePolicy;
 use ArtisanBuild\Bonfire\Policies\RoomPolicy;
 use ArtisanBuild\Bonfire\Support\AccessGateEvaluator;
 use ArtisanBuild\Bonfire\Support\AccessGateRegistry;
+use ArtisanBuild\Bonfire\Support\MemberBadgeRegistry;
+use ArtisanBuild\Bonfire\Support\MemberBadgeResolver;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Override;
@@ -29,7 +31,9 @@ class BonfireServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/../../config/bonfire.php', 'bonfire');
 
         $this->app->singleton(AccessGateRegistry::class);
+        $this->app->singleton(MemberBadgeRegistry::class);
         $this->app->scoped(AccessGateEvaluator::class);
+        $this->app->scoped(MemberBadgeResolver::class);
         $this->app->scoped(BonfireManager::class);
     }
 
