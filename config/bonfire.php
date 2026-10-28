@@ -31,6 +31,8 @@ return [
 
     'notification_channels' => ['database'],
 
+    'bulk_mentions' => true,
+
     'user_profile_url' => fn ($member) => null,
 
     'link_preview_enabled' => true,

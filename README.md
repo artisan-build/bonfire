@@ -153,6 +153,7 @@ Key options in `config/bonfire.php`:
 | `api.prefix` | `'bonfire/api'` | URL prefix for the JSON API |
 | `api.middleware` | `['auth:sanctum']` | Auth guard for the JSON API (host-owned) |
 | `notification_channels` | `['database']` | Laravel notification channels for mentions |
+| `bulk_mentions` | `true` | Enables `@channel`, `@here`, and `@everyone` fan-out and rendering; set to `false` to leave them as plain text |
 | `link_preview_enabled` | `true` | Fetch link previews for posted URLs |
 | `resolve_member` | Uses `Bonfire::memberFor()` | Callable returning the current `Member` |
 | `user_channel` | `fn ($id) => 'App.Models.User.'.$id` | Formats the broadcast channel name for a host user identifier; override to namespace per tenant |
