@@ -333,7 +333,8 @@ it('whitelists member fields and never leaks raw columns', function (): void {
     $response = $this->getJson(route('bonfire.api.rooms.messages.index', $room));
     $memberJson = $response->json('data.0.member');
 
-    expect(array_keys($memberJson))->toEqualCanonicalizing(['id', 'display_name', 'avatar_url', 'role'])
+    expect(array_keys($memberJson))->toEqualCanonicalizing(['id', 'display_name', 'avatar_url', 'role', 'badges'])
+        ->and($memberJson['badges'])->toBe([])
         ->and($memberJson)->not->toHaveKey('phone')
         ->and($memberJson)->not->toHaveKey('memberable_type')
         ->and($memberJson)->not->toHaveKey('memberable_id');

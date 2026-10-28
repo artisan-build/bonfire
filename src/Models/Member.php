@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ArtisanBuild\Bonfire\Models;
 
 use ArtisanBuild\Bonfire\Enums\BonfireRole;
+use ArtisanBuild\Bonfire\Facades\Bonfire;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -93,6 +94,14 @@ class Member extends Model
     public function hasRoleAtLeast(BonfireRole $role): bool
     {
         return $this->role->hasAtLeast($role);
+    }
+
+    /**
+     * @return list<array{label: string, url: string, title: string|null}>
+     */
+    public function badges(): array
+    {
+        return Bonfire::badgesFor($this);
     }
 
     public function getAvatarUrlAttribute(?string $value): ?string
