@@ -11,6 +11,7 @@ use ArtisanBuild\Bonfire\Models\Mention;
 use ArtisanBuild\Bonfire\Models\Message;
 use ArtisanBuild\Bonfire\Models\Room;
 use ArtisanBuild\Bonfire\Notifications\MentionedInMessage;
+use ArtisanBuild\Bonfire\Support\AccessGateEvaluator;
 use ArtisanBuild\Bonfire\Tests\Fixtures\TestUser;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -58,6 +59,42 @@ it('fails closed for missing and throwing access gate resolvers', function (): v
 
     expect($missing->isAccessibleBy($member))->toBeFalse()
         ->and($throwing->isAccessibleBy($member))->toBeFalse();
+});
+
+it('requires a literal true from an access gate resolver', function (): void {
+    $member = gateMember('Ada');
+    $room = gateRoom('truthy');
+
+    Bonfire::gate('truthy', fn (Member $resolved) => 1);
+
+    expect($room->isAccessibleBy($member))->toBeFalse();
+});
+
+it('resets console gate memoization with the scoped evaluator lifecycle', function (): void {
+    $member = gateMember('Ada');
+    $allowed = true;
+    $calls = 0;
+
+    Bonfire::gate('paid', function (Member $resolved) use (&$allowed, &$calls, $member): bool {
+        $calls++;
+
+        return $resolved->is($member) && $allowed;
+    });
+
+    $first = app(AccessGateEvaluator::class);
+
+    expect(app()->runningInConsole())->toBeTrue()
+        ->and($first->allows('paid', $member))->toBeTrue()
+        ->and($calls)->toBe(1);
+
+    $allowed = false;
+    app()->forgetScopedInstances();
+
+    $second = app(AccessGateEvaluator::class);
+
+    expect($second)->not->toBe($first)
+        ->and($second->allows('paid', $member))->toBeFalse()
+        ->and($calls)->toBe(2);
 });
 
 it('leaves ungated room behavior unchanged', function (): void {

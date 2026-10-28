@@ -10,11 +10,11 @@ use InvalidArgumentException;
 
 final class AccessGateRegistry
 {
-    /** @var array<string, Closure(Member): bool> */
+    /** @var array<string, Closure(Member): mixed> */
     private array $resolvers = [];
 
     /**
-     * @param  callable(Member): bool  $resolver
+     * @param  callable(Member): mixed  $resolver
      */
     public function register(string $name, callable $resolver): void
     {
@@ -28,7 +28,7 @@ final class AccessGateRegistry
     }
 
     /**
-     * @return (Closure(Member): bool)|null
+     * @return (Closure(Member): mixed)|null
      */
     public function resolver(string $name): ?Closure
     {

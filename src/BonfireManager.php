@@ -22,7 +22,7 @@ class BonfireManager
     ) {}
 
     /**
-     * @param  callable(Member): bool  $resolver
+     * @param  callable(Member): mixed  $resolver
      */
     public function gate(string $name, callable $resolver): void
     {

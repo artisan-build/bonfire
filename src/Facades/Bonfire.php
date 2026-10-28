@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Facade;
 
 /**
  * @method static Member ensureMember(Model $memberable, string $displayName, ?string $avatarUrl = null, BonfireRole $role = BonfireRole::Member)
- * @method static void gate(string $name, callable(Member): bool $resolver)
+ * @method static void gate(string $name, callable(Member): mixed $resolver)
  * @method static bool allowsGate(string $name, Member $member)
  * @method static Member|null memberFor(?Model $model)
  * @method static Message postAs(Member $member, Room $room, string $body, ?Message $parent = null)

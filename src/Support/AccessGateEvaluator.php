@@ -20,8 +20,8 @@ final class AccessGateEvaluator
     public function allows(string $name, Member $member): bool
     {
         $key = $name.'|'.$member::class.'|'.($member->getKey() ?? 'new:'.spl_object_id($member));
-        $request = app()->bound('request') ? app('request') : null;
-        $results = $request instanceof Request
+        $request = $this->httpRequest();
+        $results = $request !== null
             ? $request->attributes->get(self::REQUEST_CACHE_KEY, [])
             : $this->results;
 
@@ -44,12 +44,27 @@ final class AccessGateEvaluator
         return $this->remember($request, $key, $allowed, $results);
     }
 
+    private function httpRequest(): ?Request
+    {
+        if (! app()->bound('request')) {
+            return null;
+        }
+
+        $request = app('request');
+
+        if (app()->runningInConsole() && $request->route() === null) {
+            return null;
+        }
+
+        return $request;
+    }
+
     /**
      * @param  array<string, bool>|mixed  $results
      */
-    private function remember(mixed $request, string $key, bool $allowed, mixed $results): bool
+    private function remember(?Request $request, string $key, bool $allowed, mixed $results): bool
     {
-        if ($request instanceof Request) {
+        if ($request !== null) {
             $results = is_array($results) ? $results : [];
             $results[$key] = $allowed;
             $request->attributes->set(self::REQUEST_CACHE_KEY, $results);
