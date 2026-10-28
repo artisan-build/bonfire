@@ -187,13 +187,15 @@ class Message extends Model
             return;
         }
 
+        $bulkMentionsEnabled = (bool) config('bonfire.bulk_mentions', true);
         $broadcast = array_values(array_filter(
             $names,
-            fn (string $n) => in_array(strtolower($n), ['channel', 'here', 'everyone'], true),
+            fn (string $n) => $bulkMentionsEnabled
+                && in_array(strtolower($n), MarkdownRenderer::BULK_MENTIONS, true),
         ));
         $explicit = array_values(array_filter(
             $names,
-            fn (string $n) => ! in_array(strtolower($n), ['channel', 'here', 'everyone'], true),
+            fn (string $n) => ! in_array(strtolower($n), MarkdownRenderer::BULK_MENTIONS, true),
         ));
 
         $members = collect();

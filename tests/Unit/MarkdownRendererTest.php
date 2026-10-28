@@ -38,3 +38,39 @@ it('extracts unique mention names', function (): void {
 
     expect($names)->toBe(['Ada', 'Grace']);
 });
+
+it('renders bulk mentions when enabled', function (): void {
+    config()->set('bonfire.bulk_mentions', true);
+    Bonfire::ensureMember(TestUser::query()->create(['name' => 'Grace']), 'Grace');
+
+    $renderer = resolve(MarkdownRenderer::class);
+    $rendered = (string) $renderer->render('Hello @Grace and @CHANNEL');
+    $highlighted = (string) $renderer->highlightMentions('Hello @Grace and @CHANNEL');
+
+    expect($rendered)
+        ->toContain('<span class="bonfire-mention">@Grace</span>')
+        ->toContain('<span class="bonfire-mention">@CHANNEL</span>')
+        ->and($highlighted)
+        ->toContain('<span class="bonfire-mention">@Grace</span>')
+        ->toContain('<span class="bonfire-mention bonfire-mention-broadcast">@CHANNEL</span>');
+});
+
+it('leaves bulk mentions plain while rendering explicit mentions when disabled', function (): void {
+    config()->set('bonfire.bulk_mentions', false);
+    Bonfire::ensureMember(TestUser::query()->create(['name' => 'Grace']), 'Grace');
+
+    $renderer = resolve(MarkdownRenderer::class);
+    $rendered = (string) $renderer->render('Hello @Grace and @CHANNEL');
+    $highlighted = (string) $renderer->highlightMentions('Hello @Grace and @CHANNEL');
+
+    expect($rendered)
+        ->toContain('<span class="bonfire-mention">@Grace</span>')
+        ->toContain('@CHANNEL')
+        ->not->toContain('bonfire-mention-broadcast')
+        ->and(substr_count($rendered, 'class="bonfire-mention"'))->toBe(1)
+        ->and($highlighted)
+        ->toContain('<span class="bonfire-mention">@Grace</span>')
+        ->toContain('@CHANNEL')
+        ->not->toContain('bonfire-mention-broadcast')
+        ->and(substr_count($highlighted, 'class="bonfire-mention"'))->toBe(1);
+});

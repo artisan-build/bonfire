@@ -16,6 +16,8 @@ use League\CommonMark\MarkdownConverter;
  */
 class MarkdownRenderer
 {
+    public const array BULK_MENTIONS = ['channel', 'here', 'everyone'];
+
     public const string MENTION_PATTERN = '/(?<![\w`])@([A-Za-z0-9][A-Za-z0-9_\-]*)/';
 
     public function highlightMentions(string $html): HtmlString
@@ -29,7 +31,12 @@ class MarkdownRenderer
             '/(?<=^|[>\s(\[])@([A-Za-z0-9][A-Za-z0-9_\-]*)/u',
             function (array $m): string {
                 $name = htmlspecialchars($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                $isBroadcast = in_array(strtolower($m[1]), ['channel', 'here', 'everyone'], true);
+                $isBroadcast = in_array(strtolower($m[1]), self::BULK_MENTIONS, true);
+
+                if ($isBroadcast && ! (bool) config('bonfire.bulk_mentions', true)) {
+                    return $m[0];
+                }
+
                 $class = $isBroadcast ? 'bonfire-mention bonfire-mention-broadcast' : 'bonfire-mention';
 
                 return '<span class="'.$class.'">@'.$name.'</span>';
@@ -82,6 +89,13 @@ class MarkdownRenderer
     {
         $chips = [];
         $names = $this->extractMentionNames($markdown);
+
+        if (! (bool) config('bonfire.bulk_mentions', true)) {
+            $names = array_values(array_filter(
+                $names,
+                fn (string $name): bool => ! in_array(strtolower($name), self::BULK_MENTIONS, true),
+            ));
+        }
 
         if ($names === []) {
             return $markdown;
