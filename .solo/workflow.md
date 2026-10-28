@@ -20,14 +20,17 @@ As of 2026-10-28 THIS repo is the canonical home. Before that, the live code was
 - merge method: `gh pr merge --squash --delete-branch`, then confirm with `gh pr view <n> --json state`.
 
 ## Hard gate (verified on the committed SHA, clean tree)
+- setup: `mkdir -p vendor/orchestra/testbench-core/laravel/vendor` (the imported PHPStan config excludes this
+  Testbench path and PHPStan requires excluded literal paths to exist)
 - command: `composer ready` (see composer.json scripts; at minimum pint --test, phpstan, pest)
 - extra suites: none
 - monorepo: no
 
 ## CI (the merge gate for Mode A)
-- status: **inadequate until the import PR adds it.** Mode A applies only once `.github/workflows/` runs pest +
-  phpstan + pint, including a lowest-deps lane. Until then, nothing auto-merges.
-- workflows/jobs: <filled in by the import PR>
+- status: active
+- workflow: `CI` (`.github/workflows/ci.yml`)
+- jobs: `Pint` (`pint`), `PHPStan` (`phpstan`), `Pest` (`pest`), and
+  `Lowest dependencies` (`lowest-dependencies`)
 
 ## Dependency install (fresh worktree)
 - command: `composer install --no-interaction`
